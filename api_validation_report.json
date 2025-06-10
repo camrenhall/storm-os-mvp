@@ -1,0 +1,98 @@
+{
+  "summary": {
+    "total_tests": 5,
+    "passed": 5,
+    "failed": 0,
+    "success_rate": 1.0
+  },
+  "details": {
+    "MRMS_QPE": {
+      "success": true,
+      "details": "Successfully downloaded MRMS file: 3500\u00d77000, vars: ['unknown']",
+      "timestamp": "2025-06-10T10:18:36.577099",
+      "data": {
+        "filename": "MRMS_RadarOnly_QPE_01H.latest.grib2.gz",
+        "dimensions": {
+          "latitude": 3500,
+          "longitude": 7000
+        },
+        "data_variables": [
+          "unknown"
+        ],
+        "file_size": 702323,
+        "url": "https://mrms.ncep.noaa.gov/data/2D/RadarOnly_QPE_01H/MRMS_RadarOnly_QPE_01H.latest.grib2.gz",
+        "grid_size": "3500x7000"
+      }
+    },
+    "FFG_DATA": {
+      "success": true,
+      "details": "Alternative export successful: 567 bytes",
+      "timestamp": "2025-06-10T10:18:38.432413",
+      "data": {
+        "method": "alternative_export",
+        "file_size": 567
+      }
+    },
+    "NWS_ALERTS": {
+      "success": true,
+      "details": "API reachable, 0 active Flash Flood Warnings",
+      "timestamp": "2025-06-10T10:18:38.617193",
+      "data": {
+        "alert_count": 0,
+        "api_working": true,
+        "response_size": 201
+      }
+    },
+    "GEOCODING": {
+      "success": true,
+      "details": "Address: 501, Congress Avenue, Downtown, Austin, Travis County, Texas, 78701, United States...",
+      "timestamp": "2025-06-10T10:18:40.434157",
+      "data": {
+        "display_name": "501, Congress Avenue, Downtown, Austin, Travis County, Texas, 78701, United States",
+        "address_components": [
+          "house_number",
+          "road",
+          "neighbourhood",
+          "city",
+          "county",
+          "state",
+          "ISO3166-2-lvl4",
+          "postcode",
+          "country",
+          "country_code"
+        ],
+        "test_coordinates": [
+          30.2672,
+          -97.7431
+        ],
+        "service": "OpenStreetMap Nominatim"
+      }
+    },
+    "PROJECTION": {
+      "success": true,
+      "details": "Round-trip error: lat=0.000000, lon=0.000000",
+      "timestamp": "2025-06-10T10:18:40.514022",
+      "data": {
+        "original": [
+          30.0,
+          -97.0
+        ],
+        "mrms_coords": [
+          956382.2241723578,
+          -6805013.120902453
+        ],
+        "back_transformed": [
+          29.99999999999947,
+          -97.0
+        ],
+        "errors": [
+          5.293543381412746e-13,
+          0.0
+        ],
+        "mrms_projection": "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=-105 +datum=WGS84"
+      }
+    }
+  },
+  "ready_for_implementation": true,
+  "recommendations": {}
+}

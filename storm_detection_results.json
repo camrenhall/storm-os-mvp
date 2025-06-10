@@ -1,0 +1,1863 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "total_storm_areas": 26,
+    "radar_timestamp": "2025-06-10T12:41:25.378582+00:00",
+    "data_source": "NOAA_MRMS",
+    "max_reflectivity_dbz": 58.0,
+    "processing_time_seconds": 9.42,
+    "alerts_integrated": true,
+    "storms_with_alerts": 2,
+    "filtering_criteria": {
+      "min_reflectivity_dbz": 45.0,
+      "min_area_km2": 25.0,
+      "min_pixels": 10,
+      "max_intensity_score": 1.0
+    },
+    "filtering_stats": {
+      "total_detected": 64,
+      "filtered_by_size": 0,
+      "filtered_by_area": 23,
+      "filtered_by_pixels": 15,
+      "selected": 26,
+      "criteria": {
+        "min_reflectivity_dbz": 45.0,
+        "min_area_km2": 25.0,
+        "min_pixels": 10,
+        "max_intensity_score": 1.0
+      }
+    },
+    "alert_stats": {
+      "total_alerts": 245,
+      "storm_related": 61,
+      "active_storm_alerts": 60,
+      "expired_removed": 1,
+      "breakdown": {
+        "Severe Thunderstorm Warning": 3,
+        "Flood Advisory": 9,
+        "Flash Flood Warning": 1,
+        "Flood Warning": 46,
+        "Flood Watch": 2
+      },
+      "by_category": {
+        "flood_related": 58,
+        "tornado_related": 0,
+        "thunderstorm_related": 3
+      }
+    },
+    "enhancement_stats": {
+      "storms_with_alerts": 2,
+      "storms_boosted": 2,
+      "alert_intersections": 2,
+      "storms_by_alert_type": {
+        "Severe Thunderstorm Warning": 2
+      },
+      "boost_applications": {
+        "guaranteed": 2
+      },
+      "spatial_correlations": {
+        "point_contained": 2,
+        "geometry_intersects": 2,
+        "both_methods": 2
+      }
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "storm_014",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -98.81945517657144,
+              31.321766390857142
+            ],
+            [
+              -98.82945374771428,
+              31.341760676
+            ],
+            [
+              -98.84945089,
+              31.391746388857143
+            ],
+            [
+              -98.84945089,
+              31.411740674
+            ],
+            [
+              -98.779460892,
+              31.951586372857143
+            ],
+            [
+              -98.75946374971429,
+              32.03156351342857
+            ],
+            [
+              -98.71946946514285,
+              32.03156351342857
+            ],
+            [
+              -98.68947375171429,
+              32.021566370857144
+            ],
+            [
+              -98.66947660942857,
+              32.011569228285715
+            ],
+            [
+              -98.36951947514285,
+              31.651672095714286
+            ],
+            [
+              -98.36951947514285,
+              31.63167781057143
+            ],
+            [
+              -98.66947660942857,
+              31.321766390857142
+            ],
+            [
+              -98.81945517657144,
+              31.321766390857142
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 58.0,
+        "mean_reflectivity_dbz": 49.805198669433594,
+        "area_sq_km": 2570.886832093399,
+        "pixel_count": 1173,
+        "storm_intensity_score": 1.0,
+        "storm_center": [
+          -98.65270634078159,
+          31.649572800136976
+        ],
+        "detection_timestamp": "2025-06-10T12:41:23.828116+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_018",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -99.76931943514286,
+              30.262069278285715
+            ],
+            [
+              -99.76931943514286,
+              30.37203784657143
+            ],
+            [
+              -99.72932515057143,
+              30.45201498714286
+            ],
+            [
+              -99.53935229885714,
+              30.77192354942857
+            ],
+            [
+              -99.44936515857142,
+              30.86189783257143
+            ],
+            [
+              -99.42936801628571,
+              30.881892117714287
+            ],
+            [
+              -99.32938230485715,
+              30.891889260285716
+            ],
+            [
+              -99.30938516257143,
+              30.891889260285716
+            ],
+            [
+              -99.30938516257143,
+              30.86189783257143
+            ],
+            [
+              -99.31938373371429,
+              30.73193497914286
+            ],
+            [
+              -99.339380876,
+              30.671952123714288
+            ],
+            [
+              -99.65933515257143,
+              30.30205784857143
+            ],
+            [
+              -99.73932372171429,
+              30.262069278285715
+            ],
+            [
+              -99.76931943514286,
+              30.262069278285715
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 55.5,
+        "mean_reflectivity_dbz": 47.76698303222656,
+        "area_sq_km": 1511.1934161184354,
+        "pixel_count": 736,
+        "storm_intensity_score": 1.0,
+        "storm_center": [
+          -99.53240383828287,
+          30.59556821840316
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.259029+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_016",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -98.92943945914286,
+              30.991860686000003
+            ],
+            [
+              -98.99942945714287,
+              31.00185782857143
+            ],
+            [
+              -99.02942517057143,
+              31.171809252285716
+            ],
+            [
+              -99.02942517057143,
+              31.191803537428573
+            ],
+            [
+              -99.01942659942857,
+              31.231792107714288
+            ],
+            [
+              -98.96943374371429,
+              31.251786392857145
+            ],
+            [
+              -98.92943945914286,
+              31.251786392857145
+            ],
+            [
+              -98.919440888,
+              31.241789250285716
+            ],
+            [
+              -98.88944517457142,
+              31.021852113714285
+            ],
+            [
+              -98.88944517457142,
+              31.00185782857143
+            ],
+            [
+              -98.89944374571428,
+              30.991860686000003
+            ],
+            [
+              -98.92943945914286,
+              30.991860686000003
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 55.5,
+        "mean_reflectivity_dbz": 48.951271057128906,
+        "area_sq_km": 354.2633745982935,
+        "pixel_count": 236,
+        "storm_intensity_score": 0.28088024700293274,
+        "storm_center": [
+          -98.95930698576188,
+          31.119965096258237
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.042048+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_012",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.64190995314286,
+              32.38146350342858
+            ],
+            [
+              -81.78188994914285,
+              32.411454931142856
+            ],
+            [
+              -81.81188566257143,
+              32.43144921628571
+            ],
+            [
+              -81.83188280485714,
+              32.45144350142857
+            ],
+            [
+              -81.83188280485714,
+              32.47143778657143
+            ],
+            [
+              -81.82188423371429,
+              32.491432071714286
+            ],
+            [
+              -81.81188566257143,
+              32.501429214285714
+            ],
+            [
+              -81.76189280685713,
+              32.501429214285714
+            ],
+            [
+              -81.66190709542857,
+              32.47143778657143
+            ],
+            [
+              -81.64190995314286,
+              32.461440644
+            ],
+            [
+              -81.61191423971428,
+              32.44144635885714
+            ],
+            [
+              -81.61191423971428,
+              32.401457788571435
+            ],
+            [
+              -81.62191281085714,
+              32.38146350342858
+            ],
+            [
+              -81.64190995314286,
+              32.38146350342858
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 53.5,
+        "mean_reflectivity_dbz": 48.762657165527344,
+        "area_sq_km": 221.10493834192187,
+        "pixel_count": 158,
+        "storm_intensity_score": 0.2534810185991318,
+        "storm_center": [
+          -81.7206568696601,
+          32.44279984688034
+        ],
+        "detection_timestamp": "2025-06-10T12:41:23.528556+00:00",
+        "nws_alerts_present": true,
+        "alert_types": [
+          "Severe Thunderstorm Warning"
+        ],
+        "alert_details": [
+          {
+            "event": "Severe Thunderstorm Warning",
+            "urgency": "Immediate",
+            "severity": "Severe",
+            "certainty": "Observed",
+            "headline": "Severe Thunderstorm Warning issued June 10 at 8:35AM EDT until June 10 at 9:15AM EDT by NWS Charleston SC",
+            "expires": "2025-06-10T09:15:00-04:00",
+            "point_contained": true,
+            "geometry_intersects": true,
+            "correlation_method": [
+              "center-contained",
+              "geometry-overlap"
+            ]
+          }
+        ],
+        "contained_in_alert": true,
+        "alert_boosted": true,
+        "alert_boost_factor": 1.5
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_017",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -99.03942374171429,
+              30.901886402857144
+            ],
+            [
+              -99.059420884,
+              30.911883545428573
+            ],
+            [
+              -99.11941231085714,
+              30.94187497314286
+            ],
+            [
+              -99.18940230885714,
+              31.05184354142857
+            ],
+            [
+              -99.18940230885714,
+              31.07183782657143
+            ],
+            [
+              -99.17940373771428,
+              31.081834969142857
+            ],
+            [
+              -99.04942231285715,
+              31.081834969142857
+            ],
+            [
+              -99.00942802828571,
+              30.981863543428574
+            ],
+            [
+              -98.99942945714287,
+              30.93187783057143
+            ],
+            [
+              -98.99942945714287,
+              30.901886402857144
+            ],
+            [
+              -99.03942374171429,
+              30.901886402857144
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 54.5,
+        "mean_reflectivity_dbz": 49.52293395996094,
+        "area_sq_km": 280.5617284842814,
+        "pixel_count": 218,
+        "storm_intensity_score": 0.21843734574847623,
+        "storm_center": [
+          -99.08604695387932,
+          31.001526797360448
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.113711+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_022",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -88.43093975914286,
+              28.742503607428574
+            ],
+            [
+              -88.560921184,
+              28.782492177714285
+            ],
+            [
+              -88.58091832628571,
+              28.802486462857143
+            ],
+            [
+              -88.58091832628571,
+              28.822480748
+            ],
+            [
+              -88.57091975514285,
+              28.83247789057143
+            ],
+            [
+              -88.52092689942857,
+              28.842475033142858
+            ],
+            [
+              -88.4709340437143,
+              28.842475033142858
+            ],
+            [
+              -88.420941188,
+              28.822480748
+            ],
+            [
+              -88.35095118999999,
+              28.782492177714285
+            ],
+            [
+              -88.35095118999999,
+              28.752500750000003
+            ],
+            [
+              -88.39094547457142,
+              28.742503607428574
+            ],
+            [
+              -88.43093975914286,
+              28.742503607428574
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 56.0,
+        "mean_reflectivity_dbz": 51.07382583618164,
+        "area_sq_km": 191.99588483472354,
+        "pixel_count": 149,
+        "storm_intensity_score": 0.15359670786777885,
+        "storm_center": [
+          -88.46568748165222,
+          28.793155796457146
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.773669+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_019",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -99.99928657142857,
+              30.10211499714286
+            ],
+            [
+              -100.01928371371429,
+              30.112112139714288
+            ],
+            [
+              -100.01928371371429,
+              30.132106424857145
+            ],
+            [
+              -99.97928942914285,
+              30.242074993142857
+            ],
+            [
+              -99.95929228685715,
+              30.252072135714286
+            ],
+            [
+              -99.91929800228571,
+              30.252072135714286
+            ],
+            [
+              -99.89930086,
+              30.23207785057143
+            ],
+            [
+              -99.86930514657143,
+              30.202086422857143
+            ],
+            [
+              -99.86930514657143,
+              30.182092137714285
+            ],
+            [
+              -99.8793037177143,
+              30.152100710000003
+            ],
+            [
+              -99.969290858,
+              30.10211499714286
+            ],
+            [
+              -99.99928657142857,
+              30.10211499714286
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 54.5,
+        "mean_reflectivity_dbz": 48.135337829589844,
+        "area_sq_km": 192.61522639869787,
+        "pixel_count": 133,
+        "storm_intensity_score": 0.14996471198184336,
+        "storm_center": [
+          -99.94622877322033,
+          30.176788187475424
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.403198+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_013",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.48193281485715,
+              32.12153779657143
+            ],
+            [
+              -81.491931386,
+              32.21151207971428
+            ],
+            [
+              -81.491931386,
+              32.26149779257143
+            ],
+            [
+              -81.46193567257143,
+              32.26149779257143
+            ],
+            [
+              -81.41194281685713,
+              32.22150922228572
+            ],
+            [
+              -81.41194281685713,
+              32.13153493914286
+            ],
+            [
+              -81.421941388,
+              32.12153779657143
+            ],
+            [
+              -81.48193281485715,
+              32.12153779657143
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 53.0,
+        "mean_reflectivity_dbz": 48.27894592285156,
+        "area_sq_km": 120.1522634127195,
+        "pixel_count": 95,
+        "storm_intensity_score": 0.13645864201873145,
+        "storm_center": [
+          -81.45283044455473,
+          32.18787622373785
+        ],
+        "detection_timestamp": "2025-06-10T12:41:23.748656+00:00",
+        "nws_alerts_present": true,
+        "alert_types": [
+          "Severe Thunderstorm Warning"
+        ],
+        "alert_details": [
+          {
+            "event": "Severe Thunderstorm Warning",
+            "urgency": "Immediate",
+            "severity": "Severe",
+            "certainty": "Observed",
+            "headline": "Severe Thunderstorm Warning issued June 10 at 8:30AM EDT until June 10 at 9:15AM EDT by NWS Charleston SC",
+            "expires": "2025-06-10T09:15:00-04:00",
+            "point_contained": true,
+            "geometry_intersects": true,
+            "correlation_method": [
+              "center-contained",
+              "geometry-overlap"
+            ]
+          }
+        ],
+        "contained_in_alert": true,
+        "alert_boosted": true,
+        "alert_boost_factor": 1.5
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_007",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -76.95258008714285,
+              32.79134634885715
+            ],
+            [
+              -76.96257865828571,
+              32.86132634685714
+            ],
+            [
+              -76.96257865828571,
+              32.891317774571434
+            ],
+            [
+              -76.91258580257143,
+              32.891317774571434
+            ],
+            [
+              -76.84259580457143,
+              32.881320632
+            ],
+            [
+              -76.83259723342857,
+              32.871323489428576
+            ],
+            [
+              -76.81260009114285,
+              32.85132920428572
+            ],
+            [
+              -76.81260009114285,
+              32.83133491914286
+            ],
+            [
+              -76.87259151800001,
+              32.79134634885715
+            ],
+            [
+              -76.95258008714285,
+              32.79134634885715
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 53.5,
+        "mean_reflectivity_dbz": 49.27155303955078,
+        "area_sq_km": 152.97736630378526,
+        "pixel_count": 116,
+        "storm_intensity_score": 0.11691841567503586,
+        "storm_center": [
+          -76.89534130335338,
+          32.842141546942734
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.740481+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_002",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.18283299485714,
+              38.169809052285714
+            ],
+            [
+              -75.23282585057143,
+              38.19980048
+            ],
+            [
+              -75.23282585057143,
+              38.21979476514286
+            ],
+            [
+              -75.22282727942857,
+              38.22979190771429
+            ],
+            [
+              -75.00285871428571,
+              38.22979190771429
+            ],
+            [
+              -75.00285871428571,
+              38.20979762257143
+            ],
+            [
+              -75.05285157,
+              38.18980333742857
+            ],
+            [
+              -75.16283585257142,
+              38.169809052285714
+            ],
+            [
+              -75.18283299485714,
+              38.169809052285714
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 57.5,
+        "mean_reflectivity_dbz": 50.51363754272461,
+        "area_sq_km": 128.82304530846469,
+        "pixel_count": 110,
+        "storm_intensity_score": 0.10581893007481027,
+        "storm_center": [
+          -75.12659103217857,
+          38.20566418862363
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.269747+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_006",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.4527944157143,
+              34.19094630885714
+            ],
+            [
+              -75.4527944157143,
+              34.240932021714286
+            ],
+            [
+              -75.44279584457144,
+              34.260926306857144
+            ],
+            [
+              -75.36280727542857,
+              34.35090059
+            ],
+            [
+              -75.34281013314285,
+              34.35090059
+            ],
+            [
+              -75.32281299085713,
+              34.31091201971429
+            ],
+            [
+              -75.32281299085713,
+              34.29091773457143
+            ],
+            [
+              -75.34281013314285,
+              34.250929164285715
+            ],
+            [
+              -75.43279727342858,
+              34.19094630885714
+            ],
+            [
+              -75.4527944157143,
+              34.19094630885714
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 51.5,
+        "mean_reflectivity_dbz": 47.905941009521484,
+        "area_sq_km": 142.4485597161102,
+        "pixel_count": 101,
+        "storm_intensity_score": 0.10480144036256679,
+        "storm_center": [
+          -75.38702120641366,
+          34.26989475794658
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.571988+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_020",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -87.76103549257144,
+              29.37232358942857
+            ],
+            [
+              -87.80102977714286,
+              29.382320732
+            ],
+            [
+              -87.83102549057142,
+              29.39231787457143
+            ],
+            [
+              -87.88101834628571,
+              29.412312159714286
+            ],
+            [
+              -87.88101834628571,
+              29.432306444857144
+            ],
+            [
+              -87.78103263485714,
+              29.45230073
+            ],
+            [
+              -87.76103549257144,
+              29.45230073
+            ],
+            [
+              -87.71104263685714,
+              29.402315017142858
+            ],
+            [
+              -87.71104263685714,
+              29.382320732
+            ],
+            [
+              -87.74103835028572,
+              29.37232358942857
+            ],
+            [
+              -87.76103549257144,
+              29.37232358942857
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 56.5,
+        "mean_reflectivity_dbz": 49.982757568359375,
+        "area_sq_km": 112.10082308091603,
+        "pixel_count": 87,
+        "storm_intensity_score": 0.09048137862959652,
+        "storm_center": [
+          -87.78970542861087,
+          29.412477858209943
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.474182+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_025",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -87.01114265685715,
+              28.472580758000003
+            ],
+            [
+              -87.10112979714285,
+              28.48257790057143
+            ],
+            [
+              -87.1111283682857,
+              28.492575043142857
+            ],
+            [
+              -87.1111283682857,
+              28.512569328285714
+            ],
+            [
+              -87.08113265485714,
+              28.53256361342857
+            ],
+            [
+              -87.00114408571429,
+              28.53256361342857
+            ],
+            [
+              -86.97114837228571,
+              28.512569328285714
+            ],
+            [
+              -86.97114837228571,
+              28.492575043142857
+            ],
+            [
+              -86.99114551457143,
+              28.472580758000003
+            ],
+            [
+              -87.01114265685715,
+              28.472580758000003
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 57.5,
+        "mean_reflectivity_dbz": 49.987342834472656,
+        "area_sq_km": 86.7078189576092,
+        "pixel_count": 79,
+        "storm_intensity_score": 0.07122427985803613,
+        "storm_center": [
+          -87.0396147784925,
+          28.50342908364898
+        ],
+        "detection_timestamp": "2025-06-10T12:41:25.004253+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_005",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.32281299085713,
+              34.47086630085714
+            ],
+            [
+              -75.32281299085713,
+              34.490860586
+            ],
+            [
+              -75.28281870628571,
+              34.60082915428572
+            ],
+            [
+              -75.24282442171429,
+              34.60082915428572
+            ],
+            [
+              -75.24282442171429,
+              34.53084915628571
+            ],
+            [
+              -75.262821564,
+              34.490860586
+            ],
+            [
+              -75.29281727742857,
+              34.47086630085714
+            ],
+            [
+              -75.32281299085713,
+              34.47086630085714
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 52.0,
+        "mean_reflectivity_dbz": 48.62686538696289,
+        "area_sq_km": 87.94650208556942,
+        "pixel_count": 67,
+        "storm_intensity_score": 0.06533168726356586,
+        "storm_center": [
+          -75.27854701626693,
+          34.53441621185111
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.499952+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_004",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.192831566,
+              35.57055198371428
+            ],
+            [
+              -75.20283013714285,
+              35.58054912628572
+            ],
+            [
+              -75.20283013714285,
+              35.600543411428575
+            ],
+            [
+              -75.14283871028572,
+              35.66052626685715
+            ],
+            [
+              -75.122841568,
+              35.66052626685715
+            ],
+            [
+              -75.10284442571428,
+              35.65052912428571
+            ],
+            [
+              -75.10284442571428,
+              35.630534839142854
+            ],
+            [
+              -75.11284299685714,
+              35.600543411428575
+            ],
+            [
+              -75.17283442371428,
+              35.57055198371428
+            ],
+            [
+              -75.192831566,
+              35.57055198371428
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 52.5,
+        "mean_reflectivity_dbz": 48.40163803100586,
+        "area_sq_km": 70.60493829406849,
+        "pixel_count": 61,
+        "storm_intensity_score": 0.05295370372055136,
+        "storm_center": [
+          -75.15046919878947,
+          35.61451602589975
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.411194+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_015",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.53192567057143,
+              31.831620662000002
+            ],
+            [
+              -81.54192424171428,
+              31.84161780457143
+            ],
+            [
+              -81.55192281285714,
+              31.881606374857142
+            ],
+            [
+              -81.55192281285714,
+              31.921594945142857
+            ],
+            [
+              -81.54192424171428,
+              31.931592087714286
+            ],
+            [
+              -81.491931386,
+              31.931592087714286
+            ],
+            [
+              -81.491931386,
+              31.90160066
+            ],
+            [
+              -81.50192995714286,
+              31.84161780457143
+            ],
+            [
+              -81.51192852828572,
+              31.831620662000002
+            ],
+            [
+              -81.53192567057143,
+              31.831620662000002
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 52.0,
+        "mean_reflectivity_dbz": 48.35483932495117,
+        "area_sq_km": 63.792181090238245,
+        "pixel_count": 62,
+        "storm_intensity_score": 0.04738847738131984,
+        "storm_center": [
+          -81.52218596211188,
+          31.886006411717055
+        ],
+        "detection_timestamp": "2025-06-10T12:41:23.900156+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_021",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -88.280961192,
+              28.872466460857144
+            ],
+            [
+              -88.32095547657143,
+              28.932449316285716
+            ],
+            [
+              -88.32095547657143,
+              28.952443601428573
+            ],
+            [
+              -88.31095690542857,
+              28.962440744000002
+            ],
+            [
+              -88.280961192,
+              28.962440744000002
+            ],
+            [
+              -88.25096547857143,
+              28.942446458857145
+            ],
+            [
+              -88.25096547857143,
+              28.872466460857144
+            ],
+            [
+              -88.280961192,
+              28.872466460857144
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 55.0,
+        "mean_reflectivity_dbz": 49.431373596191406,
+        "area_sq_km": 58.83744857838279,
+        "pixel_count": 51,
+        "storm_intensity_score": 0.04622942388301505,
+        "storm_center": [
+          -88.28173301152682,
+          28.920908755212032
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.694430+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_010",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -98.80945660542858,
+              32.731363493428574
+            ],
+            [
+              -98.80945660542858,
+              32.75135777857143
+            ],
+            [
+              -98.79945803428572,
+              32.77135206371429
+            ],
+            [
+              -98.75946374971429,
+              32.79134634885715
+            ],
+            [
+              -98.73946660742857,
+              32.80134349142857
+            ],
+            [
+              -98.71946946514285,
+              32.80134349142857
+            ],
+            [
+              -98.69947232285715,
+              32.79134634885715
+            ],
+            [
+              -98.69947232285715,
+              32.77135206371429
+            ],
+            [
+              -98.76946232085714,
+              32.731363493428574
+            ],
+            [
+              -98.80945660542858,
+              32.731363493428574
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 50.5,
+        "mean_reflectivity_dbz": 47.540000915527344,
+        "area_sq_km": 60.69547327033116,
+        "pixel_count": 50,
+        "storm_intensity_score": 0.04378744857359605,
+        "storm_center": [
+          -98.75579080521283,
+          32.766115465224495
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.952877+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_011",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -98.67947518057143,
+              32.45144350142857
+            ],
+            [
+              -98.69947232285715,
+              32.52142349942857
+            ],
+            [
+              -98.69947232285715,
+              32.55141492714286
+            ],
+            [
+              -98.66947660942857,
+              32.55141492714286
+            ],
+            [
+              -98.63948089600001,
+              32.51142635685714
+            ],
+            [
+              -98.63948089600001,
+              32.491432071714286
+            ],
+            [
+              -98.65947803828571,
+              32.45144350142857
+            ],
+            [
+              -98.67947518057143,
+              32.45144350142857
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 53.5,
+        "mean_reflectivity_dbz": 49.01250076293945,
+        "area_sq_km": 53.263374502534994,
+        "pixel_count": 40,
+        "storm_intensity_score": 0.040708436226937456,
+        "storm_center": [
+          -98.67063923398007,
+          32.50406412007974
+        ],
+        "detection_timestamp": "2025-06-10T12:41:23.457784+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_023",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -87.441081216,
+              28.652529324285716
+            ],
+            [
+              -87.47107692942856,
+              28.662526466857145
+            ],
+            [
+              -87.47107692942856,
+              28.69251789457143
+            ],
+            [
+              -87.4610783582857,
+              28.712512179714288
+            ],
+            [
+              -87.43108264485714,
+              28.712512179714288
+            ],
+            [
+              -87.39108836028572,
+              28.69251789457143
+            ],
+            [
+              -87.39108836028572,
+              28.662526466857145
+            ],
+            [
+              -87.40108693142858,
+              28.652529324285716
+            ],
+            [
+              -87.441081216,
+              28.652529324285716
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 55.5,
+        "mean_reflectivity_dbz": 50.97058868408203,
+        "area_sq_km": 50.78600824659473,
+        "pixel_count": 51,
+        "storm_intensity_score": 0.04026604939551439,
+        "storm_center": [
+          -87.43213940440882,
+          28.680976477944256
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.843790+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_008",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -77.67247720942856,
+              32.77135206371429
+            ],
+            [
+              -77.68247578057142,
+              32.78134920628571
+            ],
+            [
+              -77.68247578057142,
+              32.80134349142857
+            ],
+            [
+              -77.67247720942856,
+              32.811340634000004
+            ],
+            [
+              -77.62248435371428,
+              32.83133491914286
+            ],
+            [
+              -77.60248721142857,
+              32.83133491914286
+            ],
+            [
+              -77.60248721142857,
+              32.80134349142857
+            ],
+            [
+              -77.65248006714285,
+              32.77135206371429
+            ],
+            [
+              -77.67247720942856,
+              32.77135206371429
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 53.0,
+        "mean_reflectivity_dbz": 50.089744567871094,
+        "area_sq_km": 40.257201658896754,
+        "pixel_count": 39,
+        "storm_intensity_score": 0.03048045268459326,
+        "storm_center": [
+          -77.64253277072383,
+          32.801446026224184
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.810822+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_009",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -98.87944660342858,
+              32.79134634885715
+            ],
+            [
+              -98.87944660342858,
+              32.811340634000004
+            ],
+            [
+              -98.79945803428572,
+              32.821337776571426
+            ],
+            [
+              -98.76946232085714,
+              32.821337776571426
+            ],
+            [
+              -98.76946232085714,
+              32.80134349142857
+            ],
+            [
+              -98.80945660542858,
+              32.79134634885715
+            ],
+            [
+              -98.87944660342858,
+              32.79134634885715
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 51.0,
+        "mean_reflectivity_dbz": 48.30555725097656,
+        "area_sq_km": 33.44444445507794,
+        "pixel_count": 36,
+        "storm_intensity_score": 0.02436666667441393,
+        "storm_center": [
+          -98.82334350979367,
+          32.8054781121217
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.882774+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_003",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.32281299085713,
+              38.129820482
+            ],
+            [
+              -75.3528087042857,
+              38.169809052285714
+            ],
+            [
+              -75.3528087042857,
+              38.18980333742857
+            ],
+            [
+              -75.30281584857143,
+              38.18980333742857
+            ],
+            [
+              -75.30281584857143,
+              38.129820482
+            ],
+            [
+              -75.32281299085713,
+              38.129820482
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 55.0,
+        "mean_reflectivity_dbz": 49.58064651489258,
+        "area_sq_km": 29.72839507117766,
+        "pixel_count": 31,
+        "storm_intensity_score": 0.023358024698782447,
+        "storm_center": [
+          -75.32406281224998,
+          38.16397738578572
+        ],
+        "detection_timestamp": "2025-06-10T12:41:22.339450+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_026",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -79.23225430771429,
+              24.863612289714286
+            ],
+            [
+              -79.24225287885714,
+              24.90360086
+            ],
+            [
+              -79.24225287885714,
+              24.943589430285716
+            ],
+            [
+              -79.22225573657143,
+              24.943589430285716
+            ],
+            [
+              -79.21225716542857,
+              24.933592287714287
+            ],
+            [
+              -79.21225716542857,
+              24.863612289714286
+            ],
+            [
+              -79.23225430771429,
+              24.863612289714286
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 54.0,
+        "mean_reflectivity_dbz": 48.53333282470703,
+        "area_sq_km": 26.63168725127278,
+        "pixel_count": 30,
+        "storm_intensity_score": 0.02054444445098186,
+        "storm_center": [
+          -79.2264411849568,
+          24.905228301813956
+        ],
+        "detection_timestamp": "2025-06-10T12:41:25.153045+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.33309733342857,
+              41.34890039
+            ],
+            [
+              -73.36309304685713,
+              41.368894675142855
+            ],
+            [
+              -73.36309304685713,
+              41.40888324542857
+            ],
+            [
+              -73.34309590457143,
+              41.40888324542857
+            ],
+            [
+              -73.31310019114287,
+              41.368894675142855
+            ],
+            [
+              -73.31310019114287,
+              41.34890039
+            ],
+            [
+              -73.33309733342857,
+              41.34890039
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 53.5,
+        "mean_reflectivity_dbz": 48.94444274902344,
+        "area_sq_km": 26.012345687273847,
+        "pixel_count": 27,
+        "storm_intensity_score": 0.019880864203845012,
+        "storm_center": [
+          -73.34023916995918,
+          41.3774636544898
+        ],
+        "detection_timestamp": "2025-06-10T12:41:21.687465+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "storm_024",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -87.23111122200001,
+              28.562555041142858
+            ],
+            [
+              -87.23111122200001,
+              28.592546468857144
+            ],
+            [
+              -87.20111550857143,
+              28.612540754
+            ],
+            [
+              -87.18111836628572,
+              28.612540754
+            ],
+            [
+              -87.18111836628572,
+              28.582549326285715
+            ],
+            [
+              -87.19111693742857,
+              28.562555041142858
+            ],
+            [
+              -87.23111122200001,
+              28.562555041142858
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "max_reflectivity_dbz": 52.0,
+        "mean_reflectivity_dbz": 48.89655303955078,
+        "area_sq_km": 26.01234568728969,
+        "pixel_count": 29,
+        "storm_intensity_score": 0.019323456796272342,
+        "storm_center": [
+          -87.20500384179365,
+          28.585802364741497
+        ],
+        "detection_timestamp": "2025-06-10T12:41:24.915285+00:00",
+        "nws_alerts_present": false,
+        "alert_types": [],
+        "alert_details": [],
+        "contained_in_alert": false,
+        "alert_boosted": false,
+        "alert_boost_factor": 1.0
+      }
+    }
+  ]
+}
