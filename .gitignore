@@ -7,6 +7,7 @@ flash_cache/
 pipeline_test_output/
 comprehensive_validation_output/
 ffw_cache/
+ffw_validation_output/
 
 # C extensions
 *.so
