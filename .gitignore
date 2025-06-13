@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 flash_cache/
+pipeline_test_output/
 
 # C extensions
 *.so

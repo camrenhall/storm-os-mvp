@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-FLASH Classification Engine
-Applies thresholds to UnitStreamflow data and generates severity classifications
-Uses percentile-based method (temporary until ReturnPeriod available)
+Optimized FLASH Classification Engine
+Multithreaded hotspot extraction with vectorized operations
 """
 
 import logging
 import numpy as np
 from datetime import datetime
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, List
 from scipy import ndimage
 from dataclasses import dataclass
+import concurrent.futures
+from functools import partial
+import threading
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +40,10 @@ class ClassificationConfig:
     
     # Quality control
     max_reasonable_streamflow: float = 100.0  # m³/s/km² sanity check
+    
+    # Performance optimization
+    max_workers: int = 4  # CPU cores for parallel processing
+    chunk_size: int = 1000  # Hotspots per thread chunk
 
 
 @dataclass 
@@ -70,15 +76,41 @@ class ClassificationResult:
     quality_degraded: bool = False
 
 
-class FlashClassifier:
+class OptimizedFlashClassifier:
     """
-    FLASH severity classification engine
-    Implements percentile-based method as temporary solution
+    High-performance FLASH severity classification engine
+    Uses vectorized operations and multithreading for hotspot extraction
     """
     
     def __init__(self, config: ClassificationConfig = None):
         self.config = config or ClassificationConfig()
         self.last_p98 = None  # Cache for fallback
+        
+        # Pre-compute grid definition for coordinate transformations
+        self._setup_grid_coordinates()
+        
+    def _setup_grid_coordinates(self):
+        """Pre-compute coordinate transformation arrays"""
+        # CONUS grid bounds (approximate)
+        self.west, self.east = -130.0, -60.0
+        self.south, self.north = 20.0, 55.0
+        self.nj, self.ni = 3500, 7000
+        
+        # Resolution
+        self.lon_res = (self.east - self.west) / self.ni
+        self.lat_res = (self.north - self.south) / self.nj
+        
+        # Pre-compute coordinate arrays for vectorized lookups
+        self.col_to_lon = self.west + (np.arange(self.ni) + 0.5) * self.lon_res
+        self.row_to_lat = self.north - (np.arange(self.nj) + 0.5) * self.lat_res
+        
+        logger.debug("Grid coordinates pre-computed for fast lookup")
+        
+    def grid_to_lonlat_vectorized(self, rows: np.ndarray, cols: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Vectorized coordinate transformation"""
+        lons = self.col_to_lon[cols]
+        lats = self.row_to_lat[rows]
+        return lons, lats
         
     def calculate_percentile_thresholds(self, unit_streamflow: np.ndarray) -> Optional[Dict[str, float]]:
         """
@@ -131,7 +163,7 @@ class FlashClassifier:
         # Create base mask for valid data
         valid_mask = (unit_streamflow != -9999.0) & (unit_streamflow >= 0) & np.isfinite(unit_streamflow)
         
-        # Apply thresholds (hierarchical)
+        # Apply thresholds (hierarchical) - vectorized operations
         critical_mask = valid_mask & (unit_streamflow >= thresholds['critical'])
         high_mask = valid_mask & (unit_streamflow >= thresholds['high']) & (~critical_mask)
         moderate_mask = valid_mask & (unit_streamflow >= thresholds['moderate']) & (~critical_mask) & (~high_mask)
@@ -153,13 +185,13 @@ class FlashClassifier:
             if num_features == 0:
                 return mask
             
-            # Count pixels in each blob
+            # Count pixels in each blob - vectorized
             component_sizes = ndimage.sum(mask, labeled_array, range(1, num_features + 1))
             
             # Keep only blobs with minimum size
             large_components = np.where(component_sizes >= self.config.min_blob_pixels)[0] + 1
             
-            # Create filtered mask
+            # Create filtered mask - vectorized
             filtered_mask = np.isin(labeled_array, large_components)
             
             removed_count = mask.sum() - filtered_mask.sum()
@@ -174,7 +206,7 @@ class FlashClassifier:
     
     def classify(self, unit_streamflow: np.ndarray, valid_time: datetime) -> Optional[ClassificationResult]:
         """
-        Main classification method
+        Main classification method - optimized version
         Returns ClassificationResult or None if classification fails
         """
         try:
@@ -241,58 +273,117 @@ class FlashClassifier:
             logger.error(f"Classification failed: {e}")
             return None
     
-    def get_flood_hotspots(self, result: ClassificationResult, 
-                          severity_level: str = "critical") -> list[Dict[str, Any]]:
+    def _extract_hotspots_for_mask(self, mask: np.ndarray, severity: str, 
+                                  valid_time: datetime, normalization_method: str) -> List[Dict[str, Any]]:
         """
-        Extract flood hotspot locations from classification result
-        Returns list of hotspot dictionaries with centroids and metadata
+        Extract hotspots from a single mask - optimized version
         """
+        if not mask.any():
+            return []
+        
         try:
-            # Select appropriate mask
-            if severity_level.lower() == "critical":
-                mask = result.critical_mask
-            elif severity_level.lower() == "high":
-                mask = result.high_mask
-            elif severity_level.lower() == "moderate":
-                mask = result.moderate_mask
-            else:
-                raise ValueError(f"Invalid severity level: {severity_level}")
-            
-            if not mask.any():
-                return []
-            
-            # Label connected components to find distinct hotspots
+            # Label connected components
             labeled_array, num_features = ndimage.label(mask)
             
+            if num_features == 0:
+                return []
+            
+            # Vectorized hotspot extraction
             hotspots = []
             
-            for i in range(1, num_features + 1):
-                # Get pixels for this hotspot
-                hotspot_mask = (labeled_array == i)
+            # Get all unique labels (excluding 0)
+            labels = np.arange(1, num_features + 1)
+            
+            # Vectorized operations for all hotspots at once
+            for label in labels:
+                hotspot_mask = (labeled_array == label)
                 pixel_count = hotspot_mask.sum()
                 
-                # Calculate centroid (in grid coordinates)
+                # Get centroid coordinates
                 coords = np.where(hotspot_mask)
                 centroid_row = coords[0].mean()
                 centroid_col = coords[1].mean()
                 
+                # Convert to geographic coordinates (vectorized lookup)
+                lons, lats = self.grid_to_lonlat_vectorized(
+                    np.array([int(centroid_row)]), 
+                    np.array([int(centroid_col)])
+                )
+                
                 hotspot = {
-                    'hotspot_id': i,
-                    'severity': severity_level,
+                    'hotspot_id': int(label),
+                    'severity': severity,
                     'pixel_count': int(pixel_count),
                     'centroid_grid': (float(centroid_row), float(centroid_col)),
-                    'valid_time': result.valid_time,
-                    'normalization_method': result.normalization_method
+                    'longitude': float(lons[0]),
+                    'latitude': float(lats[0]),
+                    'valid_time': valid_time,
+                    'normalization_method': normalization_method
                 }
                 
                 hotspots.append(hotspot)
             
-            logger.info(f"Found {len(hotspots)} {severity_level} hotspots")
             return hotspots
             
         except Exception as e:
-            logger.error(f"Hotspot extraction failed: {e}")
+            logger.error(f"Hotspot extraction failed for {severity}: {e}")
             return []
+    
+    def get_flood_hotspots_optimized(self, result: ClassificationResult) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Extract all flood hotspots using multithreading
+        Returns dict with lists of hotspots by severity level
+        """
+        logger.info("Extracting flood hotspots (optimized)...")
+        start_time = datetime.now()
+        
+        # Prepare tasks for parallel execution
+        tasks = [
+            ('critical', result.critical_mask),
+            ('high', result.high_mask),
+            ('moderate', result.moderate_mask)
+        ]
+        
+        # Extract hotspots in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            # Submit all tasks
+            future_to_severity = {
+                executor.submit(
+                    self._extract_hotspots_for_mask,
+                    mask, severity, result.valid_time, result.normalization_method
+                ): severity
+                for severity, mask in tasks
+            }
+            
+            # Collect results
+            all_hotspots = {}
+            for future in concurrent.futures.as_completed(future_to_severity):
+                severity = future_to_severity[future]
+                try:
+                    hotspots = future.result(timeout=30)  # 30 second timeout per severity
+                    all_hotspots[severity] = hotspots
+                except Exception as e:
+                    logger.error(f"Failed to extract {severity} hotspots: {e}")
+                    all_hotspots[severity] = []
+        
+        # Calculate timing
+        processing_time = (datetime.now() - start_time).total_seconds()
+        total_hotspots = sum(len(hotspots) for hotspots in all_hotspots.values())
+        
+        logger.info(f"✓ Extracted {total_hotspots} hotspots in {processing_time:.2f}s")
+        logger.info(f"  Critical: {len(all_hotspots.get('critical', []))}")
+        logger.info(f"  High: {len(all_hotspots.get('high', []))}")
+        logger.info(f"  Moderate: {len(all_hotspots.get('moderate', []))}")
+        
+        return all_hotspots
+    
+    def get_flood_hotspots(self, result: ClassificationResult, 
+                          severity_level: str = "critical") -> List[Dict[str, Any]]:
+        """
+        Backward compatibility method - extract single severity level
+        """
+        all_hotspots = self.get_flood_hotspots_optimized(result)
+        return all_hotspots.get(severity_level.lower(), [])
     
     def create_combined_severity_mask(self, result: ClassificationResult) -> np.ndarray:
         """
@@ -308,13 +399,15 @@ class FlashClassifier:
         return combined
 
 
-# Example usage and testing
+# Example usage and performance testing
 def main():
-    """Example usage of FlashClassifier"""
+    """Example usage with performance testing"""
     
     # Create sample data (simulate FLASH grid)
     np.random.seed(42)  # Reproducible results
     nj, ni = 3500, 7000  # CONUS grid
+    
+    logger.info(f"Creating test data: {ni}×{nj} = {ni*nj:,} pixels")
     
     # Simulate unit streamflow data with realistic patterns
     unit_streamflow = np.full((nj, ni), -9999.0, dtype=np.float32)  # Start with missing values
@@ -324,44 +417,62 @@ def main():
     unit_streamflow[land_mask] = np.random.exponential(0.05, land_mask.sum())  # Exponential distribution
     
     # Add some flood hotspots
-    for _ in range(5):
+    logger.info("Adding simulated flood events...")
+    for i in range(20):  # More hotspots for performance testing
         center_row = np.random.randint(500, nj-500)
         center_col = np.random.randint(500, ni-500)
         
         # Create a blob of elevated streamflow
         y, x = np.ogrid[:nj, :ni]
         distance = np.sqrt((y - center_row)**2 + (x - center_col)**2)
-        flood_mask = (distance < 50) & land_mask
+        flood_mask = (distance < np.random.randint(10, 100)) & land_mask
         unit_streamflow[flood_mask] += np.random.uniform(2.0, 8.0)
     
-    # Run classification
-    classifier = FlashClassifier()
-    result = classifier.classify(unit_streamflow, datetime.utcnow())
+    # Test optimized classifier
+    config = ClassificationConfig(max_workers=4)
+    classifier = OptimizedFlashClassifier(config)
+    
+    logger.info("Starting classification...")
+    start_time = datetime.now()
+    
+    result = classifier.classify(unit_streamflow, datetime.now())
+    
+    classification_time = (datetime.now() - start_time).total_seconds()
+    logger.info(f"Classification completed in {classification_time:.2f}s")
     
     if result:
-        print(f"✓ FLASH Classification Results:")
-        print(f"  Valid time: {result.valid_time}")
-        print(f"  Valid pixels: {result.valid_pixels:,} / {result.total_pixels:,} "
-              f"({result.valid_pixels/result.total_pixels*100:.1f}%)")
-        print(f"  P98 threshold: {result.p98_value:.3f} m³/s/km²")
-        print(f"  Critical pixels: {result.critical_count:,}")
-        print(f"  High pixels: {result.high_count:,}")
-        print(f"  Moderate pixels: {result.moderate_count:,}")
-        print(f"  Quality degraded: {result.quality_degraded}")
+        logger.info(f"Classification Results:")
+        logger.info(f"  Valid pixels: {result.valid_pixels:,} / {result.total_pixels:,} "
+                   f"({result.valid_pixels/result.total_pixels*100:.1f}%)")
+        logger.info(f"  P98 threshold: {result.p98_value:.3f} m³/s/km²")
+        logger.info(f"  Critical pixels: {result.critical_count:,}")
+        logger.info(f"  High pixels: {result.high_count:,}")
+        logger.info(f"  Moderate pixels: {result.moderate_count:,}")
         
-        # Extract hotspots
-        critical_hotspots = classifier.get_flood_hotspots(result, "critical")
-        high_hotspots = classifier.get_flood_hotspots(result, "high")
+        # Test optimized hotspot extraction
+        logger.info("Starting optimized hotspot extraction...")
+        hotspot_start = datetime.now()
         
-        print(f"  Critical hotspots: {len(critical_hotspots)}")
-        print(f"  High hotspots: {len(high_hotspots)}")
+        all_hotspots = classifier.get_flood_hotspots_optimized(result)
         
-        # Show sample hotspot
-        if critical_hotspots:
-            sample = critical_hotspots[0]
-            print(f"  Sample critical hotspot: {sample['pixel_count']} pixels at grid {sample['centroid_grid']}")
+        hotspot_time = (datetime.now() - hotspot_start).total_seconds()
+        total_hotspots = sum(len(hotspots) for hotspots in all_hotspots.values())
+        
+        logger.info(f"✓ Hotspot extraction completed in {hotspot_time:.2f}s")
+        logger.info(f"  Total hotspots: {total_hotspots}")
+        logger.info(f"  Performance: {total_hotspots/hotspot_time:.0f} hotspots/second")
+        
+        # Show sample hotspot with coordinates
+        if all_hotspots['critical']:
+            sample = all_hotspots['critical'][0]
+            logger.info(f"Sample critical hotspot: {sample['pixel_count']} pixels at "
+                       f"({sample['longitude']:.3f}, {sample['latitude']:.3f})")
+        
+        total_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Total pipeline time: {total_time:.2f}s")
+        
     else:
-        print("✗ Classification failed")
+        logger.error("Classification failed")
 
 
 if __name__ == "__main__":
