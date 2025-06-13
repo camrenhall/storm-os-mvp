@@ -5,6 +5,8 @@ __pycache__/
 
 flash_cache/
 pipeline_test_output/
+comprehensive_validation_output/
+ffw_cache/
 
 # C extensions
 *.so

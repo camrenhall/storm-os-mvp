@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-FLASH Data Pipeline Orchestrator
-Coordinates data ingestion, classification, and spatial processing
+FLASH Data Pipeline Orchestrator - UPDATED VERSION
+Properly integrates FFW data with classifier for complete flood detection pipeline
 """
 
 import asyncio
@@ -16,7 +16,7 @@ import traceback
 # Import our modules (adjust imports based on your project structure)
 from flash_ingest import FlashIngest
 from ffw_client import NWSFlashFloodWarnings
-from classifier import FlashClassifier, ClassificationConfig, ClassificationResult
+from optimized_classifier import OptimizedFlashClassifier, ClassificationConfig, ClassificationResult
 from grid_align import GridProcessor, GridDefinition
 
 # Setup logging
@@ -43,7 +43,7 @@ class PipelineConfig:
     output_dir: str = "./pipeline_output"
     save_intermediate_results: bool = True
     
-    # Classification settings
+    # UPDATED: More aggressive classification settings for production
     classification_config: ClassificationConfig = None
     
     # Daily SMS limits (placeholder for future integration)
@@ -51,7 +51,14 @@ class PipelineConfig:
     
     def __post_init__(self):
         if self.classification_config is None:
-            self.classification_config = ClassificationConfig()
+            # Production-ready settings with adaptive thresholds
+            self.classification_config = ClassificationConfig(
+                max_critical_hotspots_per_cycle=20,    # ~480/day max
+                max_high_hotspots_per_cycle=100,       # Buffer for active periods
+                max_total_hotspots_per_cycle=150,      # Hard cap
+                enable_fast_hotspot_extraction=True,   # Speed optimization
+                max_workers=4                          # Parallel processing
+            )
 
 
 @dataclass
@@ -80,9 +87,14 @@ class PipelineResult:
     high_hotspots: List[Dict[str, Any]] = None
     moderate_hotspots: List[Dict[str, Any]] = None
     
-    # Spatial processing
-    ffw_confirmed_critical_count: int = 0
-    ffw_confirmed_high_count: int = 0
+    # UPDATED: FFW-specific metrics
+    ffw_boosted_pixels: int = 0
+    threshold_escalation_applied: bool = False
+    original_vs_final_critical_threshold: Tuple[float, float] = (0.0, 0.0)
+    
+    # Performance metrics
+    classification_time_seconds: float = 0.0
+    hotspot_extraction_time_seconds: float = 0.0
     
     # Quality flags
     quality_degraded: bool = False
@@ -104,8 +116,8 @@ class PipelineResult:
 
 class FlashDataPipeline:
     """
-    Main data pipeline orchestrator
-    Coordinates all data processing components
+    Main data pipeline orchestrator - UPDATED VERSION
+    Properly integrates FFW data with classification engine
     """
     
     def __init__(self, config: PipelineConfig = None):
@@ -114,7 +126,7 @@ class FlashDataPipeline:
         # Initialize components
         self.flash_ingest = None
         self.ffw_client = None
-        self.classifier = FlashClassifier(self.config.classification_config)
+        self.classifier = OptimizedFlashClassifier(self.config.classification_config)
         self.grid_processor = GridProcessor()
         
         # Setup output directory
@@ -207,29 +219,47 @@ class FlashDataPipeline:
             errors.append(error_msg)
             return False, None, errors
     
-    def classify_flood_severity(self, flash_data: Dict[str, Any]) -> Tuple[bool, Optional[ClassificationResult], List[str]]:
+    def classify_flood_severity(self, flash_data: Dict[str, Any], 
+                               ffw_gdf: Optional[Any] = None) -> Tuple[bool, Optional[ClassificationResult], List[str]]:
         """
-        Apply flood severity classification to FLASH data
+        Apply flood severity classification to FLASH data WITH FFW integration
         Returns (success, classification_result, errors)
         """
         errors = []
         
         try:
-            logger.info("Classifying flood severity...")
+            logger.info("Classifying flood severity with FFW integration...")
             
             unit_streamflow = flash_data['unit_streamflow']
             valid_time = flash_data['valid_time']
             
-            result = self.classifier.classify(unit_streamflow, valid_time)
+            # UPDATED: Pass FFW polygons to classifier
+            start_time = datetime.now()
+            result = self.classifier.classify(
+                unit_streamflow, 
+                valid_time,
+                ffw_polygons=ffw_gdf  # KEY INTEGRATION POINT
+            )
+            classification_time = (datetime.now() - start_time).total_seconds()
             
             if not result:
                 errors.append("Classification failed to produce results")
                 return False, None, errors
             
+            # Enhanced logging with FFW and adaptive threshold info
             logger.info(f"✓ Classification complete: "
                        f"Critical={result.critical_count}, "
                        f"High={result.high_count}, "
                        f"Moderate={result.moderate_count}")
+            
+            if result.ffw_boosted_pixels > 0:
+                logger.info(f"  FFW boost: {result.ffw_boosted_pixels:,} pixels elevated to CRITICAL")
+            
+            if result.threshold_escalation_applied:
+                logger.info(f"  Adaptive thresholds: Critical raised from "
+                          f"{result.original_critical_threshold:.3f} to {result.critical_threshold_value:.3f}")
+            
+            logger.info(f"  Classification time: {classification_time:.2f}s")
             
             return True, result, errors
             
@@ -239,67 +269,66 @@ class FlashDataPipeline:
             errors.append(error_msg)
             return False, None, errors
     
-    def extract_hotspots(self, classification_result: ClassificationResult) -> Tuple[List, List, List]:
+    def extract_hotspots(self, classification_result: ClassificationResult) -> Tuple[List, List, List, float]:
         """
-        Extract hotspots for each severity level
-        Returns (critical_hotspots, high_hotspots, moderate_hotspots)
+        Extract hotspots for each severity level - UPDATED with timing
+        Returns (critical_hotspots, high_hotspots, moderate_hotspots, extraction_time)
         """
         try:
-            critical_hotspots = self.classifier.get_flood_hotspots(classification_result, "critical")
-            high_hotspots = self.classifier.get_flood_hotspots(classification_result, "high") 
-            moderate_hotspots = self.classifier.get_flood_hotspots(classification_result, "moderate")
+            start_time = datetime.now()
             
-            # Add geographic coordinates to hotspots
-            for hotspots_list in [critical_hotspots, high_hotspots, moderate_hotspots]:
-                for hotspot in hotspots_list:
-                    row, col = hotspot['centroid_grid']
-                    lon, lat = self.grid_processor.grid_to_lonlat(int(row), int(col))
-                    hotspot['longitude'] = lon
-                    hotspot['latitude'] = lat
+            # Use optimized extraction method
+            all_hotspots_dict = self.classifier.get_flood_hotspots_optimized(classification_result)
+            
+            critical_hotspots = all_hotspots_dict.get('critical', [])
+            high_hotspots = all_hotspots_dict.get('high', [])
+            moderate_hotspots = all_hotspots_dict.get('moderate', [])
+            
+            extraction_time = (datetime.now() - start_time).total_seconds()
             
             total_hotspots = len(critical_hotspots) + len(high_hotspots) + len(moderate_hotspots)
-            logger.info(f"✓ Extracted {total_hotspots} total hotspots")
+            logger.info(f"✓ Extracted {total_hotspots} hotspots in {extraction_time:.2f}s")
             
-            return critical_hotspots, high_hotspots, moderate_hotspots
+            # Performance check
+            if extraction_time > 60:
+                logger.warning(f"⚠️  Hotspot extraction took {extraction_time:.1f}s - performance issue!")
+            
+            return critical_hotspots, high_hotspots, moderate_hotspots, extraction_time
             
         except Exception as e:
             logger.error(f"Hotspot extraction failed: {e}")
-            return [], [], []
+            return [], [], [], 0.0
     
-    def apply_ffw_confirmation(self, hotspots: List[Dict], warnings_gdf) -> int:
+    def validate_results(self, result: PipelineResult) -> List[str]:
         """
-        Check which hotspots are confirmed by active FFW polygons
-        Returns count of confirmed hotspots
+        Validate pipeline results and generate warnings
+        Returns list of validation warnings
         """
-        if len(warnings_gdf) == 0 or not hotspots:
-            return 0
+        warnings = []
         
-        try:
-            confirmed_count = 0
-            
-            for hotspot in hotspots:
-                # Create point geometry for hotspot
-                from shapely.geometry import Point
-                hotspot_point = Point(hotspot['longitude'], hotspot['latitude'])
-                
-                # Check if point intersects any warning polygon
-                intersects = warnings_gdf.geometry.intersects(hotspot_point).any()
-                
-                if intersects:
-                    hotspot['ffw_confirmed'] = True
-                    confirmed_count += 1
-                else:
-                    hotspot['ffw_confirmed'] = False
-            
-            logger.info(f"✓ FFW confirmation: {confirmed_count}/{len(hotspots)} hotspots confirmed")
-            return confirmed_count
-            
-        except Exception as e:
-            logger.error(f"FFW confirmation failed: {e}")
-            return 0
+        # Check hotspot counts against targets
+        total_hotspots = len(result.critical_hotspots) + len(result.high_hotspots)
+        target_max = self.config.classification_config.max_total_hotspots_per_cycle
+        
+        if total_hotspots > target_max:
+            warnings.append(f"Hotspot count ({total_hotspots}) exceeds target ({target_max})")
+        
+        # Check processing time
+        if result.processing_duration_seconds > 300:  # 5 minutes
+            warnings.append(f"Pipeline took {result.processing_duration_seconds:.1f}s - too slow for 10min cycle")
+        
+        # Check for excessive FFW boost
+        if result.ffw_boosted_pixels > 10000:
+            warnings.append(f"Excessive FFW boost: {result.ffw_boosted_pixels:,} pixels")
+        
+        # Check data freshness
+        if result.flash_data_age_minutes and result.flash_data_age_minutes > 20:
+            warnings.append(f"FLASH data is {result.flash_data_age_minutes:.1f} minutes old")
+        
+        return warnings
     
     def save_results(self, result: PipelineResult):
-        """Save pipeline results to JSON file"""
+        """Save pipeline results to JSON file with enhanced metadata"""
         try:
             timestamp = result.pipeline_start_time.strftime("%Y%m%d_%H%M%S")
             output_file = self.output_dir / f"pipeline_result_{timestamp}.json"
@@ -312,11 +341,20 @@ class FlashDataPipeline:
                 if isinstance(value, datetime):
                     result_dict[key] = value.isoformat()
             
-            # Handle nested datetime objects
+            # Handle nested datetime objects in classification result
             if result_dict['classification_result']:
-                if 'valid_time' in result_dict['classification_result']:
-                    result_dict['classification_result']['valid_time'] = \
-                        result_dict['classification_result']['valid_time'].isoformat()
+                class_result = result_dict['classification_result']
+                if 'valid_time' in class_result:
+                    class_result['valid_time'] = class_result['valid_time'].isoformat()
+            
+            # Add pipeline performance summary
+            result_dict['performance_summary'] = {
+                'total_time_seconds': result.processing_duration_seconds,
+                'classification_time_seconds': result.classification_time_seconds,
+                'hotspot_extraction_time_seconds': result.hotspot_extraction_time_seconds,
+                'hotspots_per_second': len(result.critical_hotspots + result.high_hotspots) / max(result.hotspot_extraction_time_seconds, 0.1),
+                'within_10min_cycle': result.processing_duration_seconds < 600
+            }
             
             with open(output_file, 'w') as f:
                 json.dump(result_dict, f, indent=2, default=str)
@@ -328,7 +366,7 @@ class FlashDataPipeline:
     
     async def run_pipeline(self) -> PipelineResult:
         """
-        Execute complete data pipeline
+        Execute complete data pipeline with FFW integration
         Returns PipelineResult with all processing outcomes
         """
         start_time = datetime.utcnow()
@@ -360,26 +398,38 @@ class FlashDataPipeline:
             result.active_ffw_count = len(warnings_gdf) if ffw_success else 0
             result.errors.extend(ffw_errors)
             
-            # Step 3: Classification (only if FLASH data available)
+            # Step 3: Classification WITH FFW INTEGRATION
             if flash_success:
-                class_success, classification_result, class_errors = self.classify_flood_severity(flash_data)
+                class_start = datetime.now()
+                class_success, classification_result, class_errors = self.classify_flood_severity(
+                    flash_data, 
+                    warnings_gdf if ffw_success else None  # Pass FFW data
+                )
+                result.classification_time_seconds = (datetime.now() - class_start).total_seconds()
+                
                 result.classification_successful = class_success
                 result.classification_result = classification_result
                 result.errors.extend(class_errors)
                 
                 if class_success:
                     result.quality_degraded = classification_result.quality_degraded
+                    result.ffw_boosted_pixels = classification_result.ffw_boosted_pixels
+                    result.threshold_escalation_applied = classification_result.threshold_escalation_applied
+                    result.original_vs_final_critical_threshold = (
+                        classification_result.original_critical_threshold,
+                        classification_result.critical_threshold_value
+                    )
                     
                     # Step 4: Extract hotspots
-                    critical_hs, high_hs, moderate_hs = self.extract_hotspots(classification_result)
+                    critical_hs, high_hs, moderate_hs, extraction_time = self.extract_hotspots(classification_result)
                     result.critical_hotspots = critical_hs
                     result.high_hotspots = high_hs
                     result.moderate_hotspots = moderate_hs
-                    
-                    # Step 5: FFW confirmation (only if both data sources available)
-                    if ffw_success:
-                        result.ffw_confirmed_critical_count = self.apply_ffw_confirmation(critical_hs, warnings_gdf)
-                        result.ffw_confirmed_high_count = self.apply_ffw_confirmation(high_hs, warnings_gdf)
+                    result.hotspot_extraction_time_seconds = extraction_time
+            
+            # Step 5: Validate results
+            validation_warnings = self.validate_results(result)
+            result.warnings.extend(validation_warnings)
             
             # Update pipeline status
             if result.flash_data_acquired and result.classification_successful:
@@ -405,7 +455,17 @@ class FlashDataPipeline:
         if self.config.save_intermediate_results:
             self.save_results(result)
         
+        # Performance summary
         logger.info(f"=== Pipeline completed in {result.processing_duration_seconds:.1f}s ===")
+        logger.info(f"  Classification: {result.classification_time_seconds:.1f}s")
+        logger.info(f"  Hotspot extraction: {result.hotspot_extraction_time_seconds:.1f}s")
+        logger.info(f"  Total hotspots: {len(result.critical_hotspots + result.high_hotspots + result.moderate_hotspots)}")
+        
+        if result.warnings:
+            logger.warning(f"  Warnings: {len(result.warnings)}")
+            for warning in result.warnings:
+                logger.warning(f"    - {warning}")
+        
         return result
     
     async def run_continuous(self, max_iterations: int = None):
@@ -424,6 +484,7 @@ class FlashDataPipeline:
                     logger.info(f"Iteration {iteration + 1}: "
                                f"Critical={len(result.critical_hotspots)}, "
                                f"High={len(result.high_hotspots)}, "
+                               f"Time={result.processing_duration_seconds:.1f}s, "
                                f"Errors={len(result.errors)}")
                     
                     iteration += 1
@@ -448,13 +509,20 @@ class FlashDataPipeline:
 
 # Example usage
 async def main():
-    """Example usage of FlashDataPipeline"""
+    """Example usage of updated FlashDataPipeline with FFW integration"""
     
-    # Configure pipeline
+    # Configure pipeline with production-ready settings
     config = PipelineConfig(
         update_interval_minutes=10,
         save_intermediate_results=True,
-        output_dir="./test_pipeline_output"
+        output_dir="./production_pipeline_output",
+        classification_config=ClassificationConfig(
+            max_critical_hotspots_per_cycle=25,    # Conservative limit
+            max_high_hotspots_per_cycle=100,       
+            max_total_hotspots_per_cycle=150,      
+            enable_fast_hotspot_extraction=True,   # Speed optimization ON
+            max_workers=4
+        )
     )
     
     # Run pipeline
@@ -462,19 +530,43 @@ async def main():
         # Single run
         result = await pipeline.run_pipeline()
         
-        print(f"\n=== Pipeline Results ===")
+        print(f"\n=== Enhanced Pipeline Results ===")
         print(f"Processing time: {result.processing_duration_seconds:.1f}s")
+        print(f"  Classification: {result.classification_time_seconds:.1f}s")
+        print(f"  Hotspot extraction: {result.hotspot_extraction_time_seconds:.1f}s")
         print(f"FLASH data: {'✓' if result.flash_data_acquired else '✗'}")
-        print(f"FFW data: {'✓' if result.ffw_data_acquired else '✗'}")
+        print(f"FFW data: {'✓' if result.ffw_data_acquired else '✗'} ({result.active_ffw_count} warnings)")
         print(f"Classification: {'✓' if result.classification_successful else '✗'}")
-        print(f"Critical hotspots: {len(result.critical_hotspots)}")
-        print(f"High hotspots: {len(result.high_hotspots)}")
-        print(f"FFW confirmed critical: {result.ffw_confirmed_critical_count}")
+        
+        print(f"Hotspots detected:")
+        print(f"  Critical: {len(result.critical_hotspots)}")
+        print(f"  High: {len(result.high_hotspots)}")
+        print(f"  Moderate: {len(result.moderate_hotspots)}")
+        
+        if result.ffw_boosted_pixels > 0:
+            print(f"FFW boost: {result.ffw_boosted_pixels:,} pixels elevated to CRITICAL")
+        
+        if result.threshold_escalation_applied:
+            orig, final = result.original_vs_final_critical_threshold
+            print(f"Adaptive thresholds: Critical raised from {orig:.3f} to {final:.3f}")
+        
+        # Performance assessment
+        if result.processing_duration_seconds < 60:
+            print("✅ PERFORMANCE: Excellent (under 1 minute)")
+        elif result.processing_duration_seconds < 300:
+            print("⚠️  PERFORMANCE: Acceptable (under 5 minutes)")
+        else:
+            print("❌ PERFORMANCE: Poor (over 5 minutes)")
         
         if result.errors:
             print(f"Errors: {len(result.errors)}")
             for error in result.errors:
                 print(f"  - {error}")
+        
+        if result.warnings:
+            print(f"Warnings: {len(result.warnings)}")
+            for warning in result.warnings:
+                print(f"  - {warning}")
 
 
 if __name__ == "__main__":

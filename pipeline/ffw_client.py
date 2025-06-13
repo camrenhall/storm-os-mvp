@@ -149,9 +149,9 @@ class NWSFlashFloodWarnings:
             
             # Parse times
             try:
-                gdf['effective_time'] = gpd.pd.to_datetime(properties_df.get('effective'))
-                gdf['expires_time'] = gpd.pd.to_datetime(properties_df.get('expires'))
-                gdf['sent_time'] = gpd.pd.to_datetime(properties_df.get('sent'))
+                gdf['effective_time'] = gpd.pd.to_datetime(properties_df.get('effective'), utc=True)
+                gdf['expires_time'] = gpd.pd.to_datetime(properties_df.get('expires'), utc=True)
+                gdf['sent_time'] = gpd.pd.to_datetime(properties_df.get('sent'), utc=True)
             except Exception as e:
                 logger.warning(f"Time parsing failed: {e}")
             
