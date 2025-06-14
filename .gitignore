@@ -8,6 +8,8 @@ pipeline_test_output/
 comprehensive_validation_output/
 ffw_cache/
 ffw_validation_output/
+critical_fixes_validation/
+validation_output/
 
 # C extensions
 *.so

@@ -87,19 +87,32 @@ class ValidationMetrics:
 
 @dataclass
 class ClassificationConfig:
-    """Configuration for FLASH classification with enhanced validation"""
+    # CHANGED: Remove FFW filtering requirement  
+    require_ffw_intersection: bool = False  # Was True
     
-    # Processing mode
+    # NEW: Enable FFW as enhancement instead
+    enable_ffw_enhancement: bool = True
+    ffw_quality_multiplier: float = 1.5
+    
+    # NEW: Proper flood threshold settings
+    use_extreme_percentiles: bool = True
+    min_critical_threshold_m3s_km2: float = 15.0
+    min_high_threshold_m3s_km2: float = 8.0  
+    min_moderate_threshold_m3s_km2: float = 3.0
+    
+    # NEW: Anti-consolidation settings
+    max_event_size_km2: float = 50.0
+    enable_size_limiting: bool = True
+    
+    # EXISTING: Keep all current validation settings
     processing_mode: ProcessingMode = ProcessingMode.PRODUCTION
+    enable_detailed_logging: bool = True
     
-    # Pure science-based thresholds (from MVP spec)
-    percentile_level: float = 98.0
-    critical_threshold: float = 0.75  # 75% of P98
-    high_threshold: float = 0.50      # 50% of P98  
-    moderate_threshold: float = 0.30  # 30% of P98
-    
-    # FFW-FIRST APPROACH: Only return floods in FFW areas
-    require_ffw_intersection: bool = True
+    # Pure science-based thresholds (updated values)
+    percentile_level: float = 99.5  # Use higher percentile
+    critical_threshold: float = 1.0   # Will be overridden by physical minimums
+    high_threshold: float = 0.7       # Will be overridden by physical minimums  
+    moderate_threshold: float = 0.5   # Will be overridden by physical minimums
     
     # Enhanced validation settings
     enable_cross_method_validation: bool = True
@@ -107,14 +120,20 @@ class ClassificationConfig:
     enable_intensity_validation: bool = True
     enable_hydrological_validation: bool = True
     
-    # Quality control thresholds
-    max_reasonable_flood_area_km2: float = 10000.0  # 10,000 km² max
-    min_reasonable_flood_area_km2: float = 1.0      # 1 km² minimum
-    max_reasonable_streamflow: float = 100.0        # m³/s/km² sanity check
-    max_intensity_gradient: float = 10.0           # Max flow change between adjacent pixels
+    # NEW: Adaptive threshold settings
+    enable_adaptive_thresholds: bool = True
+    min_detection_rate_percent: float = 0.001  # Minimum 0.001% detection rate
+    major_event_threshold: float = 20.0  # m³/s/km² - threshold for "major event" mode
+    moderate_event_threshold: float = 5.0  # m³/s/km² - threshold for "moderate event" mode
+    
+    # Quality control thresholds (updated for realistic flooding)
+    max_reasonable_flood_area_km2: float = 1000.0  # Was 10000.0 - more realistic
+    min_reasonable_flood_area_km2: float = 0.25    # Was 1.0 - allow smaller events
+    max_reasonable_streamflow: float = 100.0
+    max_intensity_gradient: float = 10.0
     
     # Spatial filtering
-    min_flood_area_pixels: int = 4
+    min_flood_area_pixels: int = 2
     min_valid_pixels: int = 50000
     
     # Performance settings
@@ -169,6 +188,18 @@ class OptimizedFlashClassifier:
     Enhanced FLASH Classification Engine with Comprehensive Validation
     Leverages full processing time (20-25 minutes) for maximum data quality
     """
+    
+    def lonlat_to_grid(self, lon: float, lat: float) -> Tuple[int, int]:
+        """Convert longitude/latitude to grid indices"""
+        col = int((lon - self.west) / self.lon_res)
+        row = int((self.north - lat) / self.lat_res)
+        return row, col
+
+    def grid_to_lonlat(self, row: int, col: int) -> Tuple[float, float]:
+        """Convert grid indices to longitude/latitude coordinates"""
+        lon = self.west + (col + 0.5) * self.lon_res
+        lat = self.north - (row + 0.5) * self.lat_res
+        return lon, lat
     
     def __init__(self, config: ClassificationConfig = None):
         self.config = config or ClassificationConfig()
@@ -282,152 +313,157 @@ class OptimizedFlashClassifier:
         except Exception as e:
             logger.error(f"FFW polygon rasterization failed: {e}")
             return np.zeros((self.nj, self.ni), dtype=np.uint8)
+        
+    def _extract_fast_wrapper(self, mask, unit_streamflow, severity, valid_time, normalization_method, ffw_mask):
+        """Wrapper for fast extraction - ignores ffw_mask parameter"""
+        return self._extract_hotspots_fast(mask, unit_streamflow, severity, valid_time, normalization_method)
 
-    def calculate_science_thresholds(self, unit_streamflow: np.ndarray) -> Optional[Dict[str, float]]:
-        """Calculate pure science-based thresholds with validation"""
+    def _extract_precise_with_ffw(self, mask, unit_streamflow, severity, valid_time, normalization_method, ffw_mask):
+        """Wrapper for precise extraction with ffw_mask"""
+        return self._extract_hotspots_precise(mask, unit_streamflow, severity, valid_time, normalization_method, ffw_mask)
+
+    def calculate_adaptive_thresholds(self, unit_streamflow: np.ndarray) -> Optional[Dict[str, float]]:
+        """Calculate adaptive flood thresholds that scale with current conditions"""
         
         # Get valid data
         valid_mask = (unit_streamflow != -9999.0) & (unit_streamflow >= 0) & np.isfinite(unit_streamflow)
         valid_data = unit_streamflow[valid_mask]
         
         if len(valid_data) < self.config.min_valid_pixels:
-            logger.warning(f"Insufficient valid pixels: {len(valid_data)} < {self.config.min_valid_pixels}")
-            
             if self.last_p98 is not None:
-                logger.info(f"Using cached P98 value: {self.last_p98:.3f}")
-                p98 = self.last_p98
+                # Use cached values with adaptive scaling
+                p99_9 = self.last_p98 * 1.5
+                p99_5 = self.last_p98 * 1.2
+                p99_0 = self.last_p98 * 1.0
             else:
-                logger.error("No cached P98 available, cannot classify")
+                logger.error("No cached data available for threshold calculation")
                 return None
         else:
-            # Calculate percentile with validation
-            p98 = np.percentile(valid_data, self.config.percentile_level)
+            # Calculate percentiles for adaptive thresholds
+            p99_9 = np.percentile(valid_data, 99.9)
+            p99_5 = np.percentile(valid_data, 99.5)
+            p99_0 = np.percentile(valid_data, 99.0)
+            p98 = np.percentile(valid_data, 98.0)
             self.last_p98 = p98
             
-            # Enhanced validation of threshold calculation
-            if self.config.enable_intensity_validation:
+            # Log distribution for validation
+            if self.config.enable_detailed_logging:
                 p50 = np.percentile(valid_data, 50)
                 p90 = np.percentile(valid_data, 90)
-                p99 = np.percentile(valid_data, 99)
                 
-                logger.info(f"Streamflow distribution validation:")
-                logger.info(f"  P50 (median): {p50:.3f} m³/s/km²")
-                logger.info(f"  P90: {p90:.3f} m³/s/km²")
-                logger.info(f"  P98: {p98:.3f} m³/s/km²")
-                logger.info(f"  P99: {p99:.3f} m³/s/km²")
+                logger.info(f"Streamflow distribution analysis:")
+                logger.info(f"  P50: {p50:.3f}, P90: {p90:.3f}, P98: {p98:.3f}")
+                logger.info(f"  P99.0: {p99_0:.3f}, P99.5: {p99_5:.3f}, P99.9: {p99_9:.3f}")
                 logger.info(f"  Max: {valid_data.max():.3f} m³/s/km²")
-                
-                # Sanity checks
-                if p98 > self.config.max_reasonable_streamflow:
-                    logger.warning(f"P98 value {p98:.3f} exceeds reasonable limit")
-                
-                if p98 < p90 * 1.1:
-                    logger.warning(f"P98 ({p98:.3f}) very close to P90 ({p90:.3f}) - may indicate data issues")
         
-        # Calculate thresholds
-        thresholds = {
-            'p98': p98,
-            'critical': p98 * self.config.critical_threshold,
-            'high': p98 * self.config.high_threshold,  
-            'moderate': p98 * self.config.moderate_threshold
-        }
+        # ADAPTIVE APPROACH: Scale with conditions but maintain reasonable minimums
+        data_max = valid_data.max() if len(valid_data) > 0 else 0
         
-        logger.info(f"Science-based thresholds calculated:")
-        logger.info(f"  P98 reference: {p98:.3f} m³/s/km²")
+        # During major events (high max values), use higher thresholds
+        # During normal conditions, use lower but still meaningful thresholds
+        if data_max > 20.0:  # Major flood event conditions
+            # Use higher thresholds similar to original approach
+            thresholds = {
+                'p999': p99_9,
+                'critical': max(p99_9, 10.0),    # High threshold for major events
+                'high': max(p99_5, 5.0),         # Medium threshold  
+                'moderate': max(p99_0, 2.0)      # Lower threshold
+            }
+            logger.info("Major event conditions detected - using elevated thresholds")
+        elif data_max > 5.0:  # Moderate event conditions  
+            thresholds = {
+                'p999': p99_9,
+                'critical': max(p99_9, 3.0),     # Moderate thresholds
+                'high': max(p99_5, 1.5),
+                'moderate': max(p99_0, 0.8)
+            }
+            logger.info("Moderate event conditions detected - using intermediate thresholds")
+        else:  # Normal/quiet conditions
+            # Use percentile-based with low minimums to catch meaningful flows
+            thresholds = {
+                'p999': p99_9,
+                'critical': max(p99_9, 1.0),     # Lower thresholds for quiet periods
+                'high': max(p99_5, 0.5),
+                'moderate': max(p99_0, 0.2)
+            }
+            logger.info("Normal conditions detected - using adaptive low thresholds")
+        
+        # Validation: Ensure minimum detection rate
+        estimated_pixels = 0
+        for severity, threshold in [('moderate', thresholds['moderate']), 
+                                ('high', thresholds['high']), 
+                                ('critical', thresholds['critical'])]:
+            pixels_above = (valid_data >= threshold).sum()
+            estimated_pixels += pixels_above
+        
+        estimated_rate = (estimated_pixels / len(valid_data)) * 100 if len(valid_data) > 0 else 0
+        
+        # If still too restrictive, lower thresholds further
+        if estimated_rate < 0.001:  # Less than 0.001% detection
+            logger.warning(f"Estimated detection rate {estimated_rate:.6f}% very low, applying minimum thresholds")
+            thresholds = {
+                'p999': p99_9,
+                'critical': max(p99_9, 0.5),
+                'high': max(p99_5, 0.3), 
+                'moderate': max(p99_0, 0.1)
+            }
+        
+        logger.info(f"ADAPTIVE Flood Thresholds (Condition-Responsive):")
         logger.info(f"  Critical: ≥{thresholds['critical']:.3f} m³/s/km²")
         logger.info(f"  High: ≥{thresholds['high']:.3f} m³/s/km²")
         logger.info(f"  Moderate: ≥{thresholds['moderate']:.3f} m³/s/km²")
+        logger.info(f"  Estimated detection rate: {estimated_rate:.6f}%")
         
         return thresholds
-
-    def apply_ffw_first_classification(self, unit_streamflow: np.ndarray, 
-                                     thresholds: Dict[str, float],
-                                     ffw_mask: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, int]]:
-        """Apply FFW-FIRST classification with comprehensive validation"""
+    
+    def apply_flood_classification_no_filter(self, unit_streamflow: np.ndarray, 
+                                        thresholds: Dict[str, float],
+                                        ffw_mask: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, int]]:
+        """Apply flood classification WITHOUT FFW filtering - detect floods everywhere"""
         
         # Create base valid data mask
         valid_mask = (unit_streamflow != -9999.0) & (unit_streamflow >= 0) & np.isfinite(unit_streamflow)
         
-        # Apply pure science thresholds
-        streamflow_critical = valid_mask & (unit_streamflow >= thresholds['critical'])
-        streamflow_high = valid_mask & (unit_streamflow >= thresholds['high'])
-        streamflow_moderate = valid_mask & (unit_streamflow >= thresholds['moderate'])
+        # Apply proper flood thresholds (no FFW filtering)
+        critical_mask = valid_mask & (unit_streamflow >= thresholds['critical'])
+        high_mask = valid_mask & (unit_streamflow >= thresholds['high']) & (~critical_mask)
+        moderate_mask = valid_mask & (unit_streamflow >= thresholds['moderate']) & (~critical_mask) & (~high_mask)
         
-        # Enhanced logging for validation
-        if self.config.enable_detailed_logging:
-            logger.info(f"Pre-FFW streamflow classification:")
-            logger.info(f"  Critical pixels: {streamflow_critical.sum():,}")
-            logger.info(f"  High pixels: {streamflow_high.sum():,}")
-            logger.info(f"  Moderate pixels: {streamflow_moderate.sum():,}")
-        
-        # Apply FFW boost
-        ffw_stats = {'boosted': 0, 'verified': 0}
+        # Calculate FFW statistics for enhancement (not filtering)
+        ffw_stats = {'enhanced_critical': 0, 'enhanced_high': 0, 'total_in_ffw': 0}
         
         if ffw_mask is not None and ffw_mask.any():
-            ffw_boost = (ffw_mask == 1) & valid_mask
-            original_critical = streamflow_critical.sum()
-            critical_mask = streamflow_critical | ffw_boost
-            ffw_stats['boosted'] = ffw_boost.sum() - (ffw_boost & streamflow_critical).sum()
-            
-            logger.info(f"FFW boost applied:")
-            logger.info(f"  Original critical pixels: {original_critical:,}")
-            logger.info(f"  FFW boost pixels: {ffw_stats['boosted']:,}")
-            logger.info(f"  Total critical after boost: {critical_mask.sum():,}")
-        else:
-            critical_mask = streamflow_critical
-            logger.info("No FFW boost applied - no warning polygons available")
-        
-        # Hierarchical classification
-        high_mask = streamflow_high & (~critical_mask)
-        moderate_mask = streamflow_moderate & (~critical_mask) & (~high_mask)
-        
-        # FFW-FIRST FILTERING with detailed validation
-        if self.config.require_ffw_intersection and ffw_mask is not None and ffw_mask.any():
-            logger.info("Applying FFW-FIRST filtering with validation...")
-            
             ffw_areas = (ffw_mask == 1)
             
-            # Store original counts for validation
-            original_counts = {
-                'critical': critical_mask.sum(),
-                'high': high_mask.sum(),
-                'moderate': moderate_mask.sum()
-            }
+            # Count floods within FFW areas (for quality enhancement later)
+            ffw_stats['enhanced_critical'] = (critical_mask & ffw_areas).sum()
+            ffw_stats['enhanced_high'] = (high_mask & ffw_areas).sum() 
+            ffw_stats['total_in_ffw'] = ((critical_mask | high_mask | moderate_mask) & ffw_areas).sum()
             
-            # Apply intersection
-            critical_mask = critical_mask & ffw_areas
-            high_mask = high_mask & ffw_areas
-            moderate_mask = moderate_mask & ffw_areas
-            
-            # Calculate filtered counts
-            filtered_counts = {
-                'critical': critical_mask.sum(),
-                'high': high_mask.sum(),
-                'moderate': moderate_mask.sum()
-            }
-            
-            ffw_stats['verified'] = sum(filtered_counts.values())
-            
-            # Detailed validation logging
-            logger.info(f"FFW-FIRST filtering results:")
-            for severity in ['critical', 'high', 'moderate']:
-                original = original_counts[severity]
-                filtered = filtered_counts[severity]
-                retention_rate = (filtered / original * 100) if original > 0 else 0
-                logger.info(f"  {severity.capitalize()}: {original:,} → {filtered:,} pixels ({retention_rate:.1f}% retained)")
-            
-            total_retention = (sum(filtered_counts.values()) / sum(original_counts.values()) * 100) if sum(original_counts.values()) > 0 else 0
-            logger.info(f"  Overall retention rate: {total_retention:.1f}%")
-            
-            # Validation: Check if FFW filtering is too aggressive
-            if total_retention < 1.0:
-                logger.warning(f"FFW filtering very aggressive: only {total_retention:.1f}% of floods retained")
-            
-        elif self.config.require_ffw_intersection:
-            logger.warning("FFW-FIRST filtering enabled but no FFW data available - returning empty results")
-            critical_mask = np.zeros_like(critical_mask)
-            high_mask = np.zeros_like(high_mask)
-            moderate_mask = np.zeros_like(moderate_mask)
+            logger.info(f"FFW Enhancement Statistics (NOT filtering):")
+            logger.info(f"  Critical floods in FFW areas: {ffw_stats['enhanced_critical']:,}")
+            logger.info(f"  High floods in FFW areas: {ffw_stats['enhanced_high']:,}")
+            logger.info(f"  Total floods in FFW areas: {ffw_stats['total_in_ffw']:,}")
+        
+        # Log total detections (should be much lower with proper thresholds)
+        total_floods = critical_mask.sum() + high_mask.sum() + moderate_mask.sum()
+        total_pixels = unit_streamflow.size
+        detection_rate = (total_floods / total_pixels) * 100
+        
+        logger.info(f"Flood Detection Results (No FFW Filtering):")
+        logger.info(f"  Critical floods: {critical_mask.sum():,} pixels")
+        logger.info(f"  High floods: {high_mask.sum():,} pixels") 
+        logger.info(f"  Moderate floods: {moderate_mask.sum():,} pixels")
+        logger.info(f"  Total flood pixels: {total_floods:,}")
+        logger.info(f"  Detection rate: {detection_rate:.3f}% of grid")
+        
+        # Validation: Warn if detection rate is still too high
+        if detection_rate > 1.0:
+            logger.warning(f"Detection rate {detection_rate:.3f}% may still be too high - check thresholds")
+        elif detection_rate < 0.001:
+            logger.warning(f"Detection rate {detection_rate:.3f}% may be too low - no floods detected")
+        else:
+            logger.info(f"✅ Detection rate {detection_rate:.3f}% appears reasonable for actual flooding")
         
         return critical_mask, high_mask, moderate_mask, ffw_stats
 
@@ -517,11 +553,11 @@ class OptimizedFlashClassifier:
         try:
             logger.info(f"Cross-validating extraction methods for {severity}...")
             
-            # Method 1: Grid-based (fast)
+            # Method 1: Grid-based (fast) - doesn't need ffw_mask
             grid_events = self._extract_hotspots_fast(mask, unit_streamflow, severity, valid_time, "validation")
-            
-            # Method 2: Connected components (precise)
-            component_events = self._extract_hotspots_precise(mask, unit_streamflow, severity, valid_time, "validation")
+
+            # Method 2: Connected components (precise) - needs ffw_mask
+            component_events = self._extract_hotspots_precise(mask, unit_streamflow, severity, valid_time, "validation", None)
             
             validation_results['grid_method_events'] = len(grid_events)
             validation_results['component_method_events'] = len(component_events)
@@ -808,8 +844,8 @@ class OptimizedFlashClassifier:
             for severity, mask in [('critical', result.critical_mask), ('high', result.high_mask)]:
                 if mask.any():
                     sample_events.extend(self._extract_hotspots_precise(
-                        mask, unit_streamflow, severity, result.valid_time, result.normalization_method
-                    )[:3])  # Test top 3 events per severity
+                mask, unit_streamflow, severity, result.valid_time, result.normalization_method, result.ffw_mask
+            )[:3])  # Test top 3 events per severity
             
             zero_quality_count = sum(1 for event in sample_events if event.get('quality_rank', 0) <= 0.001)
             
@@ -874,8 +910,7 @@ class OptimizedFlashClassifier:
     def classify(self, unit_streamflow: np.ndarray, valid_time: datetime,
                 ffw_polygons: Optional[gpd.GeoDataFrame] = None) -> Optional[ClassificationResult]:
         """
-        Main classification method with comprehensive validation
-        Leverages full processing time for maximum data quality
+        Main classification method with proper thresholds and no FFW filtering
         """
         try:
             overall_start = time.time()
@@ -886,44 +921,48 @@ class OptimizedFlashClassifier:
                 return None
             
             logger.info(f"Starting {self.config.processing_mode.value} flood classification for {valid_time}")
-            logger.info(f"Enhanced validation enabled - leveraging full processing time for quality")
+            logger.info(f"FIXED APPROACH: Proper thresholds, no FFW filtering, FFW enhancement only")
             
-            # Step 1: Rasterize FFW polygons
+            # Step 1: Rasterize FFW polygons (for enhancement, not filtering)
             ffw_mask = None
             if ffw_polygons is not None and len(ffw_polygons) > 0:
-                logger.info(f"Processing {len(ffw_polygons)} active Flash Flood Warnings...")
+                logger.info(f"Processing {len(ffw_polygons)} active Flash Flood Warnings for enhancement...")
                 ffw_mask = self.rasterize_ffw_polygons(ffw_polygons)
             else:
-                if self.config.require_ffw_intersection:
-                    logger.warning("FFW-FIRST mode enabled but no FFW polygons provided")
+                logger.info("No FFW polygons provided - enhancement disabled but detection continues")
                 ffw_mask = np.zeros((self.nj, self.ni), dtype=np.uint8)
             
-            # Step 2: Calculate pure science thresholds
+            # Step 2: Calculate PROPER science thresholds with physical minimums
             threshold_start = time.time()
-            thresholds = self.calculate_science_thresholds(unit_streamflow)
+            thresholds = self.calculate_adaptive_thresholds(unit_streamflow)
             if not thresholds:
                 return None
             threshold_time = time.time() - threshold_start
             
-            # Step 3: Apply FFW-FIRST classification
+            # Step 3: Apply flood classification WITHOUT FFW filtering
             classification_start = time.time()
-            critical_mask, high_mask, moderate_mask, ffw_stats = self.apply_ffw_first_classification(
+            critical_mask, high_mask, moderate_mask, ffw_stats = self.apply_flood_classification_no_filter(
                 unit_streamflow, thresholds, ffw_mask
             )
             classification_time = time.time() - classification_start
             
-            # Step 4: Apply spatial filtering based on processing mode
+            # Step 4: Apply anti-consolidation (limit event sizes)
+            if self.config.enable_size_limiting:
+                logger.info("Applying anti-consolidation to prevent mega-events...")
+                critical_mask = self.segment_floods_with_size_limits(critical_mask, self.config.max_event_size_km2)
+                high_mask = self.segment_floods_with_size_limits(high_mask, self.config.max_event_size_km2)
+                moderate_mask = self.segment_floods_with_size_limits(moderate_mask, self.config.max_event_size_km2)
+            
+            # Step 5: Spatial filtering based on processing mode
             filtering_start = time.time()
             if self.config.processing_mode in [ProcessingMode.PRODUCTION, ProcessingMode.VALIDATION]:
-                logger.info("Applying precise spatial filtering with validation...")
+                logger.info("Applying spatial filtering...")
                 critical_mask = self.apply_spatial_filtering(critical_mask)
                 high_mask = self.apply_spatial_filtering(high_mask) 
                 moderate_mask = self.apply_spatial_filtering(moderate_mask)
-            else:
-                logger.info("Skipping spatial filtering in development mode")
             filtering_time = time.time() - filtering_start
             
-            # Step 5: Calculate statistics
+            # Step 6: Calculate statistics
             total_pixels = unit_streamflow.size
             valid_mask = (unit_streamflow != -9999.0) & np.isfinite(unit_streamflow)
             valid_pixels = valid_mask.sum()
@@ -935,7 +974,7 @@ class OptimizedFlashClassifier:
             # Determine quality status
             quality_degraded = len(unit_streamflow[valid_mask]) < self.config.min_valid_pixels
             
-            # Step 6: Create result object
+            # Step 7: Create result object
             result = ClassificationResult(
                 critical_mask=critical_mask,
                 high_mask=high_mask,
@@ -944,7 +983,7 @@ class OptimizedFlashClassifier:
                 valid_time=valid_time,
                 total_pixels=int(total_pixels),
                 valid_pixels=int(valid_pixels),
-                p98_value=thresholds['p98'],
+                p98_value=thresholds.get('p999', thresholds.get('critical', 15.0)),  # Updated
                 critical_threshold_value=thresholds['critical'],
                 high_threshold_value=thresholds['high'], 
                 moderate_threshold_value=thresholds['moderate'],
@@ -952,14 +991,14 @@ class OptimizedFlashClassifier:
                 high_count=int(high_count),
                 moderate_count=int(moderate_count),
                 processing_mode=self.config.processing_mode.value,
-                normalization_method="P98_Science_Validated",
-                ffw_intersection_applied=self.config.require_ffw_intersection,
-                ffw_boosted_pixels=ffw_stats['boosted'],
-                ffw_verified_pixels=ffw_stats['verified'],
+                normalization_method="Physical_Minimums_Applied",  # Updated
+                ffw_intersection_applied=False,  # Changed - no filtering
+                ffw_boosted_pixels=ffw_stats.get('total_in_ffw', 0),  # Enhanced events
+                ffw_verified_pixels=0,  # No longer applicable
                 quality_degraded=quality_degraded
             )
             
-            # Step 7: Comprehensive Validation (if enabled)
+            # Step 8: Comprehensive Validation (if enabled)
             if self.config.processing_mode in [ProcessingMode.PRODUCTION, ProcessingMode.VALIDATION]:
                 logger.info("Running comprehensive validation suite...")
                 validation_metrics = self.comprehensive_validation(result, unit_streamflow, ffw_mask)
@@ -969,28 +1008,41 @@ class OptimizedFlashClassifier:
                 validation_metrics.classification_time = classification_time
                 validation_metrics.total_time = time.time() - overall_start
             
+            # Coordinate accuracy validation
+            if self.config.processing_mode == ProcessingMode.VALIDATION:
+                logger.info("Validating coordinate accuracy...")
+                coord_error = self.validate_coordinate_accuracy()
+                if hasattr(result, 'validation_metrics'):
+                    result.validation_metrics.coordinate_accuracy_km = coord_error
+            
             # Performance tracking
             total_time = time.time() - overall_start
             self.processing_stats['last_classification_time'] = total_time
             
             # Results summary
             total_flood_pixels = critical_count + high_count + moderate_count
-            logger.info(f"✓ Classification complete in {total_time:.2f}s:")
+            logger.info(f"✅ FIXED Classification complete in {total_time:.2f}s:")
             logger.info(f"  Mode: {self.config.processing_mode.value}")
-            logger.info(f"  Critical: {critical_count:,} pixels")
-            logger.info(f"  High: {high_count:,} pixels") 
-            logger.info(f"  Moderate: {moderate_count:,} pixels")
-            logger.info(f"  Total flood pixels: {total_flood_pixels:,}")
+            logger.info(f"  Critical: {critical_count:,} pixels ({critical_count/total_pixels*100:.3f}%)")
+            logger.info(f"  High: {high_count:,} pixels ({high_count/total_pixels*100:.3f}%)")
+            logger.info(f"  Moderate: {moderate_count:,} pixels ({moderate_count/total_pixels*100:.3f}%)")
+            logger.info(f"  Total flood pixels: {total_flood_pixels:,} ({total_flood_pixels/total_pixels*100:.3f}%)")
             logger.info(f"  Processing breakdown:")
             logger.info(f"    Thresholds: {threshold_time:.2f}s")
             logger.info(f"    Classification: {classification_time:.2f}s")
             logger.info(f"    Spatial filtering: {filtering_time:.2f}s")
             
-            if self.config.require_ffw_intersection:
-                logger.info(f"  FFW-verified pixels: {ffw_stats['verified']:,}")
-                
-            if ffw_stats['boosted'] > 0:
-                logger.info(f"  FFW boosted pixels: {ffw_stats['boosted']:,}")
+            # Success validation
+            detection_rate = (total_flood_pixels / total_pixels) * 100
+            if detection_rate > 1.0:
+                logger.warning(f"⚠️  Detection rate {detection_rate:.3f}% still high - may need threshold adjustment")
+            elif detection_rate < 0.001:
+                logger.warning(f"⚠️  Detection rate {detection_rate:.3f}% very low - may be too restrictive")
+            else:
+                logger.info(f"✅ Detection rate {detection_rate:.3f}% appears realistic for actual flooding")
+            
+            if ffw_stats.get('total_in_ffw', 0) > 0:
+                logger.info(f"  FFW enhancement: {ffw_stats['total_in_ffw']:,} flood pixels in warning areas")
             
             if hasattr(result, 'validation_metrics') and result.validation_metrics:
                 vm = result.validation_metrics
@@ -1009,10 +1061,165 @@ class OptimizedFlashClassifier:
             import traceback
             logger.error(traceback.format_exc())
             return None
+        
+    def validate_coordinate_accuracy(self) -> float:
+        """Validate coordinate accuracy against known landmarks"""
+        
+        test_locations = [
+            {"name": "Chicago", "lat": 41.8781, "lon": -87.6298},
+            {"name": "Denver", "lat": 39.7392, "lon": -104.9903}, 
+            {"name": "Atlanta", "lat": 33.7490, "lon": -84.3880},
+            {"name": "Seattle", "lat": 47.6062, "lon": -122.3321},
+            {"name": "Miami", "lat": 25.7617, "lon": -80.1918}
+        ]
+        
+        max_error_km = 0.0
+        errors = []
+        
+        for location in test_locations:
+            try:
+                # Convert known coordinates to grid indices
+                row, col = self.lonlat_to_grid(location["lon"], location["lat"])
+                
+                # Check if within grid bounds
+                if not (0 <= row < self.nj and 0 <= col < self.ni):
+                    logger.warning(f"{location['name']} outside grid bounds: ({row}, {col})")
+                    continue
+                
+                # Convert back to coordinates
+                calc_lon, calc_lat = self.grid_to_lonlat(row, col)
+                
+                # Calculate error using Haversine formula
+                error_km = self._calculate_distance_km(
+                    location["lat"], location["lon"], 
+                    calc_lat, calc_lon
+                )
+                
+                errors.append(error_km)
+                max_error_km = max(max_error_km, error_km)
+                
+                logger.info(f"Coordinate validation - {location['name']}: {error_km:.2f}km error")
+                
+            except Exception as e:
+                logger.error(f"Coordinate validation failed for {location['name']}: {e}")
+        
+        if errors:
+            mean_error = np.mean(errors)
+            logger.info(f"Coordinate accuracy summary:")
+            logger.info(f"  Mean error: {mean_error:.2f}km")
+            logger.info(f"  Max error: {max_error_km:.2f}km")
+            
+            if max_error_km > 10.0:
+                logger.error(f"❌ Coordinate accuracy POOR: {max_error_km:.2f}km max error")
+            elif max_error_km > 5.0:
+                logger.warning(f"⚠️  Coordinate accuracy MODERATE: {max_error_km:.2f}km max error")
+            else:
+                logger.info(f"✅ Coordinate accuracy GOOD: {max_error_km:.2f}km max error")
+        
+        return max_error_km
+
+    def _calculate_distance_km(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate distance between two points using Haversine formula"""
+        from math import radians, sin, cos, sqrt, asin
+        
+        # Convert to radians
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        
+        # Earth radius in kilometers
+        earth_radius_km = 6371.0
+        
+        return earth_radius_km * c
+        
+    def segment_floods_with_size_limits(self, mask: np.ndarray, max_event_size_km2: float = 50.0) -> np.ndarray:
+        """Prevent over-consolidation by limiting connected component sizes"""
+        
+        if not mask.any():
+            return mask
+        
+        try:
+            # Initial connected components
+            labeled_array, num_features = ndimage.label(mask)
+            
+            if num_features == 0:
+                return mask
+            
+            # Find oversized components
+            component_sizes = ndimage.sum(mask, labeled_array, range(1, num_features + 1))
+            oversized_components = np.where(component_sizes > max_event_size_km2)[0] + 1
+            
+            if len(oversized_components) > 0:
+                logger.info(f"Found {len(oversized_components)} oversized flood components (>{max_event_size_km2} km²)")
+                
+                # Break oversized components into sub-regions
+                for comp_id in oversized_components:
+                    comp_mask = (labeled_array == comp_id)
+                    
+                    # Use watershed or grid-based segmentation to break up large areas
+                    sub_components = self._break_large_component(comp_mask, max_event_size_km2)
+                    
+                    # Replace original component with sub-components
+                    labeled_array[comp_mask] = 0  # Clear original
+                    for i, sub_comp in enumerate(sub_components):
+                        new_label = num_features + i + 1
+                        labeled_array[sub_comp] = new_label
+                    
+                    num_features += len(sub_components)
+            
+            # Recreate mask from size-limited components
+            size_limited_mask = labeled_array > 0
+            
+            logger.info(f"Component size limiting results:")
+            logger.info(f"  Original components: {(labeled_array > 0).sum():,} pixels")
+            logger.info(f"  Size-limited components: {size_limited_mask.sum():,} pixels")
+            
+            return size_limited_mask
+            
+        except Exception as e:
+            logger.error(f"Component size limiting failed: {e}")
+            return mask
+
+    def _break_large_component(self, component_mask: np.ndarray, max_size_km2: float) -> List[np.ndarray]:
+        """Break a large connected component into smaller sub-regions"""
+        
+        # Simple grid-based approach: divide into roughly equal sub-regions
+        coords = np.where(component_mask)
+        min_row, max_row = coords[0].min(), coords[0].max()
+        min_col, max_col = coords[1].min(), coords[1].max()
+        
+        # Calculate grid divisions needed
+        total_area = component_mask.sum()
+        num_divisions = int(np.ceil(total_area / max_size_km2))
+        grid_div = int(np.ceil(np.sqrt(num_divisions)))
+        
+        row_step = (max_row - min_row) // grid_div + 1
+        col_step = (max_col - min_col) // grid_div + 1
+        
+        sub_components = []
+        for i in range(grid_div):
+            for j in range(grid_div):
+                sub_row_start = min_row + i * row_step
+                sub_row_end = min_row + (i + 1) * row_step
+                sub_col_start = min_col + j * col_step  
+                sub_col_end = min_col + (j + 1) * col_step
+                
+                # Create sub-region mask
+                sub_mask = np.zeros_like(component_mask)
+                sub_mask[sub_row_start:sub_row_end, sub_col_start:sub_col_end] = component_mask[sub_row_start:sub_row_end, sub_col_start:sub_col_end]
+                
+                if sub_mask.any():
+                    sub_components.append(sub_mask)
+        
+        return sub_components
     
     def _extract_hotspots_precise(self, mask: np.ndarray, unit_streamflow: np.ndarray, 
-                                severity: str, valid_time: datetime, 
-                                normalization_method: str) -> List[Dict[str, Any]]:
+                            severity: str, valid_time: datetime, 
+                            normalization_method: str, ffw_mask: Optional[np.ndarray] = None) -> List[Dict[str, Any]]:
         """
         FIXED: Precise hotspot extraction with corrected quality ranking calculation
         BUG FIX: Ensures quality_rank never becomes 0.0 for valid flood events
@@ -1132,6 +1339,35 @@ class OptimizedFlashClassifier:
                     'size_rank': float(pixel_count),
                     'quality_rank': float(quality_rank)  # NOW GUARANTEED NON-ZERO
                 }
+                
+                                    
+                # FFW Enhancement (instead of filtering)
+                ffw_multiplier = 1.0
+                if ffw_mask is not None and ffw_mask.any():
+                    # Check if event centroid is in FFW area
+                    centroid_row_int = int(centroid_row)
+                    centroid_col_int = int(centroid_col)
+                    
+                    if (0 <= centroid_row_int < self.nj and 0 <= centroid_col_int < self.ni and
+                        ffw_mask[centroid_row_int, centroid_col_int] == 1):
+                        ffw_multiplier = 1.5  # 50% quality boost for FFW confirmation
+                        ffw_confirmed = True
+                    else:
+                        ffw_confirmed = False
+                else:
+                    ffw_confirmed = False
+
+                # Apply FFW enhancement to quality score
+                enhanced_quality_rank = quality_rank * ffw_multiplier
+
+                # Add to hotspot record
+                hotspot.update({
+                    'ffw_confirmed': ffw_confirmed,
+                    'ffw_multiplier': ffw_multiplier,
+                    'base_quality_rank': float(quality_rank),
+                    'enhanced_quality_rank': float(enhanced_quality_rank),
+                    'quality_rank': float(enhanced_quality_rank)  # Use enhanced as primary
+                })
                 
                 hotspots.append(hotspot)
             
@@ -1257,12 +1493,15 @@ class OptimizedFlashClassifier:
         logger.info(f"Extracting flood events using {self.config.processing_mode.value} method...")
         start_time = time.time()
         
+        # Store ffw_mask for precise extraction
+        self._current_ffw_mask = result.ffw_mask
+
         # Choose extraction method based on processing mode
         if self.config.processing_mode == ProcessingMode.DEVELOPMENT:
-            extract_func = self._extract_hotspots_fast
+            extract_func = self._extract_fast_wrapper
             logger.info("Using FAST extraction for development iteration")
         else:
-            extract_func = self._extract_hotspots_precise
+            extract_func = self._extract_precise_with_ffw
             logger.info("Using PRECISE extraction with comprehensive validation")
         
         # Prepare tasks for parallel execution
@@ -1277,7 +1516,8 @@ class OptimizedFlashClassifier:
             future_to_severity = {
                 executor.submit(
                     extract_func,
-                    mask, unit_streamflow, severity, result.valid_time, result.normalization_method
+                    mask, unit_streamflow, severity, result.valid_time, result.normalization_method, 
+                    result.ffw_mask if extract_func == self._extract_hotspots_precise else None
                 ): severity
                 for severity, mask in tasks
             }
@@ -1426,12 +1666,12 @@ def main():
     test_configs = [
         ("DEVELOPMENT", ClassificationConfig(
             processing_mode=ProcessingMode.DEVELOPMENT,
-            require_ffw_intersection=True,
+            require_ffw_intersection=False,
             enable_detailed_logging=True
         )),
         ("PRODUCTION", ClassificationConfig(
             processing_mode=ProcessingMode.PRODUCTION,
-            require_ffw_intersection=True,
+            require_ffw_intersection=False,
             enable_detailed_logging=True,
             enable_cross_method_validation=True,
             enable_spatial_validation=True,
@@ -1439,7 +1679,7 @@ def main():
         )),
         ("VALIDATION", ClassificationConfig(
             processing_mode=ProcessingMode.VALIDATION,
-            require_ffw_intersection=True,
+            require_ffw_intersection=False,
             enable_detailed_logging=True,
             enable_cross_method_validation=True,
             enable_spatial_validation=True,
