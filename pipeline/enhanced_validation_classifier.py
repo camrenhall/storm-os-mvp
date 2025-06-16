@@ -19,6 +19,14 @@ from enum import Enum
 import json
 from pathlib import Path
 
+# Import population grid module
+try:
+    from exposure import homes, initialize_population_grid, is_initialized, GRID_SHAPE
+    EXPOSURE_AVAILABLE = True
+except ImportError:
+    EXPOSURE_AVAILABLE = False
+    print("Warning: exposure module not available, home estimates disabled")
+
 try:
     import geopandas as gpd
     from shapely.geometry import Point, Polygon
@@ -189,18 +197,6 @@ class OptimizedFlashClassifier:
     Leverages full processing time (20-25 minutes) for maximum data quality
     """
     
-    def lonlat_to_grid(self, lon: float, lat: float) -> Tuple[int, int]:
-        """Convert longitude/latitude to grid indices"""
-        col = int((lon - self.west) / self.lon_res)
-        row = int((self.north - lat) / self.lat_res)
-        return row, col
-
-    def grid_to_lonlat(self, row: int, col: int) -> Tuple[float, float]:
-        """Convert grid indices to longitude/latitude coordinates"""
-        lon = self.west + (col + 0.5) * self.lon_res
-        lat = self.north - (row + 0.5) * self.lat_res
-        return lon, lat
-    
     def __init__(self, config: ClassificationConfig = None):
         self.config = config or ClassificationConfig()
         self.last_p98 = None
@@ -212,6 +208,9 @@ class OptimizedFlashClassifier:
         # Pre-compute grid definition
         self._setup_grid_coordinates()
         
+        # Initialize population grid if available
+        self._initialize_exposure_data()
+        
         # Performance and validation tracking
         self.processing_stats = {
             'last_classification_time': 0.0,
@@ -220,12 +219,41 @@ class OptimizedFlashClassifier:
             'last_hotspot_count': 0
         }
         
+        # Score computation warning (one-time per run)
+        self._score_warning_logged = False
+    
+    def _initialize_exposure_data(self):
+        """Initialize population exposure data if available"""
+        if EXPOSURE_AVAILABLE:
+            try:
+                if not is_initialized():
+                    logger.info("Initializing population exposure grid...")
+                    initialize_population_grid()
+                    logger.info("✅ Population exposure grid ready")
+                else:
+                    logger.info("✅ Population exposure grid already initialized")
+                self._exposure_enabled = True
+            except Exception as e:
+                logger.error(f"❌ Population exposure initialization failed: {e}")
+                self._exposure_enabled = False
+        else:
+            logger.warning("⚠️  Population exposure module not available")
+            self._exposure_enabled = False
+        
     def _setup_grid_coordinates(self):
         """Pre-compute coordinate transformation arrays"""
+        # Use GRID_SHAPE from exposure module if available, otherwise fallback
+        if EXPOSURE_AVAILABLE:
+            self.nj, self.ni = GRID_SHAPE
+            logger.info(f"Using exposure module grid dimensions: {self.ni}×{self.nj}")
+        else:
+            # Fallback to original hardcoded values
+            self.nj, self.ni = 3500, 7000
+            logger.warning(f"Using fallback grid dimensions: {self.ni}×{self.nj}")
+        
         # CONUS grid bounds (MRMS specification)
         self.west, self.east = -130.0, -60.0
         self.south, self.north = 20.0, 55.0
-        self.nj, self.ni = 3500, 7000
         
         # Resolution
         self.lon_res = (self.east - self.west) / self.ni
@@ -241,6 +269,18 @@ class OptimizedFlashClassifier:
         ]
         
         logger.debug("Grid coordinates and validation framework initialized")
+        
+    def lonlat_to_grid(self, lon: float, lat: float) -> Tuple[int, int]:
+        """Convert longitude/latitude to grid indices"""
+        col = int((lon - self.west) / self.lon_res)
+        row = int((self.north - lat) / self.lat_res)
+        return row, col
+
+    def grid_to_lonlat(self, row: int, col: int) -> Tuple[float, float]:
+        """Convert grid indices to longitude/latitude coordinates"""
+        lon = self.west + (col + 0.5) * self.lon_res
+        lat = self.north - (row + 0.5) * self.lat_res
+        return lon, lat
         
     def grid_to_lonlat_vectorized(self, rows: np.ndarray, cols: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Vectorized coordinate transformation"""
@@ -373,35 +413,35 @@ class OptimizedFlashClassifier:
         elif data_max > 5.0:  # Moderate event conditions  
             thresholds = {
                 'p999': p99_9,
-                'critical': max(p99_9, 3.0),     # Moderate thresholds
-                'high': max(p99_5, 1.5),
-                'moderate': max(p99_0, 0.8)
-            }
-            logger.info("Moderate event conditions detected - using intermediate thresholds")
-        else:  # Normal/quiet conditions
-            # Use percentile-based with low minimums to catch meaningful flows
-            thresholds = {
-                'p999': p99_9,
-                'critical': max(p99_9, 1.0),     # Lower thresholds for quiet periods
-                'high': max(p99_5, 0.5),
-                'moderate': max(p99_0, 0.2)
-            }
-            logger.info("Normal conditions detected - using adaptive low thresholds")
-        
-        # Validation: Ensure minimum detection rate
-        estimated_pixels = 0
-        for severity, threshold in [('moderate', thresholds['moderate']), 
-                                ('high', thresholds['high']), 
-                                ('critical', thresholds['critical'])]:
-            pixels_above = (valid_data >= threshold).sum()
-            estimated_pixels += pixels_above
-        
-        estimated_rate = (estimated_pixels / len(valid_data)) * 100 if len(valid_data) > 0 else 0
-        
-        # If still too restrictive, lower thresholds further
-        if estimated_rate < 0.001:  # Less than 0.001% detection
-            logger.warning(f"Estimated detection rate {estimated_rate:.6f}% very low, applying minimum thresholds")
-            thresholds = {
+               'critical': max(p99_9, 3.0),     # Moderate thresholds
+               'high': max(p99_5, 1.5),
+               'moderate': max(p99_0, 0.8)
+           }
+           logger.info("Moderate event conditions detected - using intermediate thresholds")
+       else:  # Normal/quiet conditions
+           # Use percentile-based with low minimums to catch meaningful flows
+           thresholds = {
+               'p999': p99_9,
+               'critical': max(p99_9, 1.0),     # Lower thresholds for quiet periods
+               'high': max(p99_5, 0.5),
+               'moderate': max(p99_0, 0.2)
+           }
+           logger.info("Normal conditions detected - using adaptive low thresholds")
+       
+       # Validation: Ensure minimum detection rate
+       estimated_pixels = 0
+       for severity, threshold in [('moderate', thresholds['moderate']), 
+                               ('high', thresholds['high']), 
+                               ('critical', thresholds['critical'])]:
+           pixels_above = (valid_data >= threshold).sum()
+           estimated_pixels += pixels_above
+       
+       estimated_rate = (estimated_pixels / len(valid_data)) * 100 if len(valid_data) > 0 else 0
+       
+       # If still too restrictive, lower thresholds further
+       if estimated_rate < 0.001:  # Less than 0.001% detection
+           logger.warning(f"Estimated detection rate {estimated_rate:.6f}% very low, applying minimum thresholds")
+           thresholds = {
                 'p999': p99_9,
                 'critical': max(p99_9, 0.5),
                 'high': max(p99_5, 0.3), 
@@ -695,8 +735,8 @@ class OptimizedFlashClassifier:
             return validation_results
 
     def comprehensive_validation(self, result: ClassificationResult, 
-                               unit_streamflow: np.ndarray,
-                               ffw_mask: Optional[np.ndarray] = None) -> ValidationMetrics:
+                                unit_streamflow: np.ndarray,
+                                ffw_mask: Optional[np.ndarray] = None) -> ValidationMetrics:
         """Comprehensive validation of classification results"""
         
         logger.info("Starting comprehensive validation...")
@@ -717,8 +757,8 @@ class OptimizedFlashClassifier:
                 logger.info("Validating connected components...")
                 
                 for severity, mask in [('critical', result.critical_mask), 
-                                     ('high', result.high_mask), 
-                                     ('moderate', result.moderate_mask)]:
+                                        ('high', result.high_mask), 
+                                        ('moderate', result.moderate_mask)]:
                     if mask.any():
                         comp_validation = self.validate_connected_components(mask, severity)
                         metrics.total_components_found += comp_validation['total_components']
@@ -754,8 +794,8 @@ class OptimizedFlashClassifier:
                 coherence_scores = []
                 
                 for severity, mask in [('critical', result.critical_mask), 
-                                     ('high', result.high_mask), 
-                                     ('moderate', result.moderate_mask)]:
+                                        ('high', result.high_mask), 
+                                        ('moderate', result.moderate_mask)]:
                     if mask.any():
                         intensity_val = self.validate_intensity_coherence(mask, unit_streamflow, severity)
                         total_gradient_anomalies += intensity_val['gradient_anomalies']
@@ -781,7 +821,7 @@ class OptimizedFlashClassifier:
                 if total_flood_pixels > 0:
                     # Check what percentage of floods are in FFW areas
                     floods_in_ffw = ((result.critical_mask | result.high_mask | result.moderate_mask) & 
-                                   (ffw_mask == 1)).sum()
+                                    (ffw_mask == 1)).sum()
                     metrics.ffw_coverage_percentage = (floods_in_ffw / total_flood_pixels * 100)
                     
                     # Check for floods outside FFW areas (shouldn't happen with FFW-first)
@@ -793,7 +833,7 @@ class OptimizedFlashClassifier:
                 
                 # Check FFW areas without detected floods
                 ffw_with_floods = ((ffw_mask == 1) & 
-                                 (result.critical_mask | result.high_mask | result.moderate_mask)).sum()
+                                    (result.critical_mask | result.high_mask | result.moderate_mask)).sum()
                 ffw_without_floods = ffw_pixels - ffw_with_floods
                 metrics.ffw_areas_without_floods = ffw_without_floods
                 
@@ -1303,6 +1343,18 @@ class OptimizedFlashClassifier:
                 theoretical_area = np.pi * (np.sqrt(pixel_count / np.pi))**2
                 compactness = min(1.0, pixel_count / theoretical_area) if theoretical_area > 0 else 0.0
                 
+                # Get home estimate for this location if available
+                home_estimate = 0
+                if self._exposure_enabled:
+                    try:
+                        center_row = int(centroid_row)
+                        center_col = int(centroid_col)
+                        if 0 <= center_row < self.nj and 0 <= center_col < self.ni:
+                            home_estimate = homes(center_row, center_col)
+                    except Exception as e:
+                        logger.debug(f"Home estimate lookup failed for event {label}: {e}")
+                        home_estimate = 0
+                
                 # Create comprehensive hotspot record
                 hotspot = {
                     'flood_event_id': int(label),
@@ -1314,6 +1366,13 @@ class OptimizedFlashClassifier:
                     'latitude': float(lats[0]),
                     'valid_time': valid_time,
                     'classification_method': normalization_method,
+                    
+                    # NEW: Required metadata fields
+                    'segment_id': f"{int(centroid_row)}_{int(centroid_col)}",
+                    'first_seen': valid_time.isoformat() + "Z",
+                    'ttl_minutes': 180,
+                    'home_estimate': int(home_estimate),
+                    'event_score': 0.0,  # Placeholder for scoring system
                     
                     # ENHANCED METEOROLOGICAL DATA
                     'max_streamflow': max_streamflow,
@@ -1340,7 +1399,6 @@ class OptimizedFlashClassifier:
                     'quality_rank': float(quality_rank)  # NOW GUARANTEED NON-ZERO
                 }
                 
-                                    
                 # FFW Enhancement (instead of filtering)
                 ffw_multiplier = 1.0
                 if ffw_mask is not None and ffw_mask.any():
@@ -1386,6 +1444,7 @@ class OptimizedFlashClassifier:
                     top_event = hotspots[0]
                     logger.info(f"  Top event: {top_event['max_streamflow']:.3f} m³/s/km², "
                             f"{top_event['pixel_count']} pixels, quality={top_event['quality_rank']:.1f}")
+                    logger.info(f"  Top event home estimate: {top_event['home_estimate']:,} homes")
                     
                     # Validation: Check that all events have non-zero quality scores
                     zero_quality_events = [e for e in hotspots if e['quality_rank'] <= 0.001]
@@ -1394,6 +1453,11 @@ class OptimizedFlashClassifier:
                     else:
                         logger.info(f"  ✅ Quality score fix verified: All {len(hotspots)} events have non-zero quality")
             
+            # Log scoring warning once per run
+            if not self._score_warning_logged and hotspots:
+                logger.warning("⚠️  Event scores not yet computed - scoring system not implemented")
+                self._score_warning_logged = True
+            
             return hotspots
             
         except Exception as e:
@@ -1401,8 +1465,8 @@ class OptimizedFlashClassifier:
             return []
     
     def _extract_hotspots_fast(self, mask: np.ndarray, unit_streamflow: np.ndarray,
-                              severity: str, valid_time: datetime, 
-                              normalization_method: str) -> List[Dict[str, Any]]:
+                            severity: str, valid_time: datetime, 
+                            normalization_method: str) -> List[Dict[str, Any]]:
         """Fast hotspot extraction with basic validation"""
         if not mask.any():
             return []
@@ -1453,6 +1517,17 @@ class OptimizedFlashClassifier:
                     np.array([int(centroid_col)])
                 )
                 
+                # ADD: Get home estimate if available
+                home_estimate = 0
+                if self._exposure_enabled:
+                    try:
+                        center_row = int(centroid_row)
+                        center_col = int(centroid_col)
+                        if 0 <= center_row < self.nj and 0 <= center_col < self.ni:
+                            home_estimate = homes(center_row, center_col)
+                    except Exception as e:
+                        home_estimate = 0
+                
                 hotspot = {
                     'flood_event_id': int(cluster_id),
                     'severity': severity,
@@ -1466,7 +1541,14 @@ class OptimizedFlashClassifier:
                     'max_streamflow': float(cluster_streamflow.max()),
                     'mean_streamflow': float(cluster_streamflow.mean()),
                     'meteorological_score': float(cluster_streamflow.max() * np.sqrt(pixel_count)),
-                    'processing_mode': 'fast_development'
+                    'processing_mode': 'fast_development',
+                    
+                    # ADD: Required metadata fields that were missing
+                    'segment_id': f"{int(centroid_row)}_{int(centroid_col)}",
+                    'first_seen': valid_time.isoformat() + "Z",
+                    'ttl_minutes': 180,
+                    'home_estimate': int(home_estimate),
+                    'event_score': 0.0  # Placeholder for scoring system
                 }
                 
                 hotspots.append(hotspot)
@@ -1479,14 +1561,23 @@ class OptimizedFlashClassifier:
             if self.config.enable_detailed_logging:
                 logger.info(f"Fast extraction for {severity}: {len(hotspots)} events in {extraction_time:.3f}s")
             
+            # Log scoring warning once per run
+            if not self._score_warning_logged and hotspots:
+                logger.warning("⚠️  Event scores not yet computed - scoring system not implemented")
+                self._score_warning_logged = True
+            
             return hotspots
+            
+        except Exception as e:
+            logger.error(f"Fast hotspot extraction failed for {severity}: {e}")
+            return []
             
         except Exception as e:
             logger.error(f"Fast hotspot extraction failed for {severity}: {e}")
             return []
     
     def extract_flood_events(self, result: ClassificationResult, 
-                           unit_streamflow: np.ndarray) -> Dict[str, List[Dict[str, Any]]]:
+                            unit_streamflow: np.ndarray) -> Dict[str, List[Dict[str, Any]]]:
         """
         Extract flood events with mode-dependent processing and validation
         """
@@ -1517,7 +1608,7 @@ class OptimizedFlashClassifier:
                 executor.submit(
                     extract_func,
                     mask, unit_streamflow, severity, result.valid_time, result.normalization_method, 
-                    result.ffw_mask if extract_func == self._extract_hotspots_precise else None
+                    result.ffw_mask if extract_func == self._extract_precise_with_ffw else None
                 ): severity
                 for severity, mask in tasks
             }
@@ -1556,7 +1647,7 @@ class OptimizedFlashClassifier:
         return all_flood_events
     
     def save_validation_report(self, result: ClassificationResult, flood_events: Dict, 
-                             timestamp: str) -> str:
+                                timestamp: str) -> str:
         """Save comprehensive validation report"""
         
         try:
@@ -1569,7 +1660,8 @@ class OptimizedFlashClassifier:
                     'processing_mode': result.processing_mode,
                     'valid_time': result.valid_time.isoformat(),
                     'classification_method': result.normalization_method,
-                    'ffw_intersection_applied': result.ffw_intersection_applied
+                    'ffw_intersection_applied': result.ffw_intersection_applied,
+                    'exposure_enabled': self._exposure_enabled
                 },
                 'classification_results': {
                     'total_pixels': result.total_pixels,
@@ -1626,8 +1718,8 @@ class OptimizedFlashClassifier:
             if all_events:
                 # Sort by quality and take top 10
                 top_events = sorted(all_events, 
-                                  key=lambda x: x.get('quality_rank', x.get('meteorological_score', 0)), 
-                                  reverse=True)[:10]
+                                    key=lambda x: x.get('quality_rank', x.get('meteorological_score', 0)), 
+                                    reverse=True)[:10]
                 
                 validation_report['top_flood_events'] = top_events
             
@@ -1644,11 +1736,12 @@ class OptimizedFlashClassifier:
     
     def get_processing_stats(self) -> Dict[str, Any]:
         """Get comprehensive processing statistics"""
-        return {
+        stats = {
             **self.processing_stats,
             'processing_mode': self.config.processing_mode.value,
             'ffw_intersection_required': self.config.require_ffw_intersection,
             'validation_enabled': self.config.processing_mode in [ProcessingMode.PRODUCTION, ProcessingMode.VALIDATION],
+            'exposure_enabled': self._exposure_enabled,
             'configuration': {
                 'cross_method_validation': self.config.enable_cross_method_validation,
                 'spatial_validation': self.config.enable_spatial_validation,
@@ -1656,11 +1749,21 @@ class OptimizedFlashClassifier:
                 'detailed_logging': self.config.enable_detailed_logging
             }
         }
+        
+        # Add population grid stats if available
+        if self._exposure_enabled:
+            try:
+                from exposure import get_population_stats
+                stats['population_grid_stats'] = get_population_stats()
+            except Exception as e:
+                logger.debug(f"Could not get population stats: {e}")
+        
+        return stats
 
 
-# Example usage and comprehensive testing
-def main():
-    """Comprehensive testing of enhanced validation classifier"""
+    # Example usage and comprehensive testing
+    def main():
+    """Comprehensive testing of enhanced validation classifier with population grid"""
     
     # Test all processing modes
     test_configs = [
@@ -1691,12 +1794,17 @@ def main():
     
     for mode_name, config in test_configs:
         print(f"\n{'='*60}")
-        print(f"Testing {mode_name} Mode with Enhanced Validation")
+        print(f"Testing {mode_name} Mode with Enhanced Validation + Population Grid")
         print(f"{'='*60}")
         
         # Create test data
         np.random.seed(42)
-        nj, ni = 3500, 7000
+        
+        # Use correct grid dimensions
+        if EXPOSURE_AVAILABLE:
+            nj, ni = GRID_SHAPE
+        else:
+            nj, ni = 3500, 7000
         
         print(f"Generating test data: {ni}×{nj} = {ni*nj:,} pixels")
         
@@ -1805,7 +1913,7 @@ def main():
                 print(f"    Total events: {total_events}")
                 print(f"    Extraction time: {events_time:.2f}s")
                 
-                # Show top events with enhanced data
+                # Show top events with enhanced data including home estimates
                 all_events = []
                 for severity, events in flood_events.items():
                     all_events.extend(events)
@@ -1813,20 +1921,23 @@ def main():
                 if all_events:
                     # Sort by quality ranking
                     top_events = sorted(all_events, 
-                                      key=lambda x: x.get('quality_rank', x.get('meteorological_score', 0)), 
-                                      reverse=True)[:3]
+                                        key=lambda x: x.get('quality_rank', x.get('meteorological_score', 0)), 
+                                        reverse=True)[:3]
                     
                     print(f"\n    Top 3 flood events by quality:")
                     for i, event in enumerate(top_events):
                         print(f"      {i+1}. {event['severity'].title()}: "
-                              f"{event['max_streamflow']:.3f} m³/s/km² max, "
-                              f"{event['pixel_count']} pixels, "
-                              f"quality={event.get('quality_rank', event.get('meteorological_score', 0)):.1f}")
+                                f"{event['max_streamflow']:.3f} m³/s/km² max, "
+                                f"{event['pixel_count']} pixels, "
+                                f"quality={event.get('quality_rank', event.get('meteorological_score', 0)):.1f}")
+                        print(f"         Segment: {event['segment_id']}, "
+                                f"Homes: {event['home_estimate']:,}, "
+                                f"Score: {event['event_score']:.1f}")
                         
                         # Show enhanced metrics if available
                         if 'intensity_uniformity' in event:
                             print(f"         Uniformity: {event['intensity_uniformity']:.3f}, "
-                                  f"Compactness: {event.get('spatial_compactness', 0):.3f}")
+                                    f"Compactness: {event.get('spatial_compactness', 0):.3f}")
                 
                 # Save validation report if in validation mode
                 if config.processing_mode == ProcessingMode.VALIDATION:
@@ -1868,12 +1979,43 @@ def main():
                 print(f"    Business impact: GOOD (high but manageable)")
             else:
                 print(f"    Business impact: NEEDS FILTERING (too high volume)")
+            
+            # Population grid assessment
+            if classifier._exposure_enabled:
+                print(f"\n  Population Grid Integration:")
+                try:
+                    from exposure import get_population_stats
+                    pop_stats = get_population_stats()
+                    print(f"    Total homes in grid: {pop_stats['total_homes']:,}")
+                    print(f"    Grid coverage: {pop_stats['non_zero_pixels']:,} pixels")
+                    print(f"    Memory usage: {pop_stats['memory_mb']:.1f} MB")
+                    print(f"    ✅ Population grid integration working")
+                except Exception as e:
+                    print(f"    ❌ Population grid stats error: {e}")
+            else:
+                print(f"\n  Population Grid Integration: ❌ DISABLED")
         
         else:
             print(f"❌ {mode_name} classification failed")
         
         print(f"\n{mode_name} mode test completed in {total_time:.2f}s")
+        
+        # Test population grid performance if available
+        if EXPOSURE_AVAILABLE and classifier._exposure_enabled:
+            print(f"\n  Testing population grid performance...")
+            try:
+                from exposure import benchmark_lookups
+                benchmark_results = benchmark_lookups(50000)
+                
+                print(f"    Lookup performance:")
+                print(f"      Samples: {benchmark_results['samples']:,}")
+                print(f"      Mean time: {benchmark_results['mean_time_ms']:.4f}ms")
+                print(f"      Throughput: {benchmark_results['lookups_per_second']:,.0f} lookups/sec")
+                print(f"      Target (<5ms): {'✅ PASS' if benchmark_results['performance_target_met'] else '❌ FAIL'}")
+                
+            except Exception as e:
+                print(f"    ❌ Performance benchmark failed: {e}")
 
 
-if __name__ == "__main__":
+    if __name__ == "__main__":
     main()
