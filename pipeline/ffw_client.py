@@ -66,7 +66,7 @@ class NWSFlashFloodWarnings:
         cache_file = self.cache_dir / "active_ffw.json"
         if use_cache and cache_file.exists():
             try:
-                cache_age = datetime.utcnow() - datetime.fromtimestamp(cache_file.stat().st_mtime)
+                cache_age = datetime.now(datetime.UTC) - datetime.fromtimestamp(cache_file.stat().st_mtime)
                 if cache_age < timedelta(minutes=self.cache_timeout_minutes):
                     with open(cache_file, 'r') as f:
                         cached_data = json.load(f)
@@ -217,7 +217,7 @@ class NWSFlashFloodWarnings:
         try:
             cache_file = self.cache_dir / "active_ffw.json"
             if cache_file.exists():
-                cache_age = datetime.utcnow() - datetime.fromtimestamp(cache_file.stat().st_mtime)
+                cache_age = datetime.now(datetime.UTC) - datetime.fromtimestamp(cache_file.stat().st_mtime)
                 if cache_age > timedelta(hours=1):  # Remove if older than 1 hour
                     cache_file.unlink()
                     logger.debug("Cleaned up old FFW cache")

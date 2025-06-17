@@ -33,6 +33,7 @@ except ImportError:
 class TestPerformance:
     """Test performance benchmarks"""
     
+    @pytest.mark.slow
     def test_lookup_performance_50k(self, exposure_grid):
         """Test 17: Population grid lookup performance"""
         

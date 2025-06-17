@@ -143,6 +143,8 @@ class PopulationGridLoader:
             
             self._loaded = True
             
+            self._validate_grid_orientation()
+            
         except Exception as e:
             logger.error(f"❌ Population grid loading failed: {e}")
             raise
@@ -171,6 +173,24 @@ class PopulationGridLoader:
         
         # Fast array access - this is the performance-critical path
         return int(self._homes_array[row, col])
+    
+    def _validate_grid_orientation(self):
+        """Verify exposure grid orientation using Houston as reference point"""
+        try:
+            # Houston: ~29.75°N, -95.35°W should have substantial population
+            houston_homes = homes(1400, 1200)  # Approximate Houston grid coordinates
+            assert houston_homes > 500, f"Houston area shows {houston_homes} homes - grid may be flipped"
+            
+            # Also check a known low-population area (West Texas desert)
+            desert_homes = homes(2000, 800)  # Approximate West Texas coordinates  
+            assert desert_homes < 100, f"Desert area shows {desert_homes} homes - suspicious"
+            
+            logger.info(f"✓ Grid orientation validated: Houston={houston_homes}, Desert={desert_homes}")
+            
+        except Exception as e:
+            logger.error(f"❌ CRITICAL: Grid orientation validation failed: {e}")
+            logger.error("Grid may be flipped - all home estimates will be wrong!")
+            raise ValueError(f"Exposure grid orientation invalid: {e}")
     
     def get_stats(self) -> dict:
         """Get population grid statistics for validation"""

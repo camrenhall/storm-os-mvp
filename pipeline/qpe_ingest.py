@@ -72,7 +72,7 @@ class QPEIngest:
         urls.append(latest_url)
         
         # FIXED: Backup timestamped files with correct naming
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         for i in range(1, 4):  # 10, 20, 30 minutes ago
             test_time = now - timedelta(minutes=lookback_minutes + (i * 10))
             minute = (test_time.minute // 10) * 10
@@ -166,7 +166,7 @@ class QPEIngest:
                         valid_time = codes_get(gid, 'dataTime')
                         valid_datetime = datetime.strptime(f"{valid_date}{valid_time:04d}", "%Y%m%d%H%M")
                     except:
-                        valid_datetime = datetime.utcnow()
+                        valid_datetime = datetime.now(datetime.UTC)
                     
                     # Get the data values and ensure float32 consistency
                     values = codes_get_values(gid)
@@ -257,7 +257,7 @@ class QPEIngest:
     def cleanup_cache(self):
         """Remove old cached files"""
         try:
-            cutoff = datetime.utcnow() - timedelta(hours=self.cache_retention_hours)
+            cutoff = datetime.now(datetime.UTC) - timedelta(hours=self.cache_retention_hours)
             
             for cache_file in self.cache_dir.glob("qpe_*.npz"):
                 try:

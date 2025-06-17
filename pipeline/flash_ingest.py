@@ -72,7 +72,7 @@ class FlashIngest:
         urls.append(latest_url)
         
         # Backup: Try recent timestamped files (up to 3 cycles back)
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         for i in range(1, 4):  # 10, 20, 30 minutes ago
             test_time = now - timedelta(minutes=lookback_minutes + (i * 10))
             minute = (test_time.minute // 10) * 10
@@ -161,11 +161,18 @@ class FlashIngest:
                         valid_time = codes_get(gid, 'dataTime')
                         valid_datetime = datetime.strptime(f"{valid_date}{valid_time:04d}", "%Y%m%d%H%M")
                     except:
-                        valid_datetime = datetime.utcnow()
+                        valid_datetime = datetime.now(datetime.UTC)
                     
                     # Get the data values
                     values = codes_get_values(gid)
                     unit_streamflow = values.reshape(nj, ni)  # Reshape to 2D grid
+                    
+                    # CRITICAL: Guard against blank/corrupt FLASH files
+                    active_pixels = (unit_streamflow > 0.1).sum()
+                    if active_pixels < 100:
+                        raise ValueError(f"FLASH frame appears empty/corrupt: only {active_pixels} active pixels")
+
+                    logger.debug(f"FLASH validation: {active_pixels:,} active pixels detected")
                     
                     # Basic statistics for validation
                     valid_mask = unit_streamflow != -9999.0
@@ -252,7 +259,7 @@ class FlashIngest:
     def cleanup_cache(self):
         """Remove old cached files (keep last 1 hour)"""
         try:
-            cutoff = datetime.utcnow() - timedelta(hours=self.cache_retention_hours)
+            cutoff = datetime.now(datetime.UTC) - timedelta(hours=self.cache_retention_hours)
             
             for cache_file in self.cache_dir.glob("flash_*.npz"):
                 try:

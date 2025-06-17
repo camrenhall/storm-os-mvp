@@ -473,11 +473,15 @@ class FloodClassifier:
             logger.info(f"Starting {self.config.processing_mode.value} flood classification for {valid_time}")
             logger.info(f"SPEC-COMPLIANT: Fixed 2/5/10 m³/s/km² thresholds with FFW enhancement")
             
-            # Step 1: Rasterize FFW polygons (for enhancement, not filtering)
+            # Step 1: Rasterize FFW polygons (for enhancement, not filtering) - with graceful fallback
             ffw_mask = None
             if ffw_polygons is not None and len(ffw_polygons) > 0:
-                logger.info(f"Processing {len(ffw_polygons)} active Flash Flood Warnings for enhancement...")
-                ffw_mask = self.rasterize_ffw_polygons(ffw_polygons)
+                try:
+                    logger.info(f"Processing {len(ffw_polygons)} active Flash Flood Warnings for enhancement...")
+                    ffw_mask = self.rasterize_ffw_polygons(ffw_polygons)
+                except Exception as e:
+                    logger.warning(f"FFW processing failed, continuing without FFW enhancement: {e}")
+                    ffw_mask = np.zeros((self.nj, self.ni), dtype=np.uint8)
             else:
                 logger.info("No FFW polygons provided - enhancement disabled but detection continues")
                 ffw_mask = np.zeros((self.nj, self.ni), dtype=np.uint8)

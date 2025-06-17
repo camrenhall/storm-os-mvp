@@ -60,13 +60,15 @@ def exposure_grid():
     
     if not is_initialized():
         try:
-            # Try with test fixture path
+            # The issue is likely here - we need to pass the actual path
             fixtures_path = Path(__file__).parent / "fixtures"
             parquet_file = fixtures_path / "pixel_exposure_conus.parquet"
             
             if parquet_file.exists():
-                # This assumes the exposure module can accept a custom path
-                initialize_population_grid()
+                # PROBLEM: initialize_population_grid() doesn't accept a path parameter
+                # But the function signature in exposure.py shows it does:
+                # def initialize_population_grid(parquet_path: str = "pixel_exposure_conus.parquet", ...)
+                initialize_population_grid(str(parquet_file))
             else:
                 pytest.skip("Test exposure grid not available")
                 
