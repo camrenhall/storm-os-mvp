@@ -10,6 +10,7 @@ ffw_cache/
 ffw_validation_output/
 critical_fixes_validation/
 validation_output/
+qpe_cache/
 
 # C extensions
 *.so
