@@ -10,7 +10,7 @@ import logging
 import gzip
 import tempfile
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any
 import numpy as np
@@ -72,7 +72,7 @@ class QPEIngest:
         urls.append(latest_url)
         
         # FIXED: Backup timestamped files with correct naming
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         for i in range(1, 4):  # 10, 20, 30 minutes ago
             test_time = now - timedelta(minutes=lookback_minutes + (i * 10))
             minute = (test_time.minute // 10) * 10
