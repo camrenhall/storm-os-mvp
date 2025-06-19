@@ -17,9 +17,10 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code (fixed paths - no pipeline/ subdirectory)
-COPY *.py ./
+# Copy source code matching your structure
+COPY pipeline/ ./pipeline/
 COPY generator/ ./generator/
+COPY db.py .
 COPY schema.sql .
 
 # Create cache directory
