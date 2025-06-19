@@ -2,6 +2,7 @@
 """
 Database connection and operations for Flood-Lead Intelligence MVP
 Handles asyncpg pool management and bulk operations to Neon
+FIXED: Schema alignment with actual database structure
 """
 
 import os
@@ -50,16 +51,17 @@ async def close_pool():
         _db_pool = None
         logger.info("Database pool closed")
 
-# Column definitions for flood_pixels_raw table
+# FIXED: Column definitions matching actual database schema
+# Schema: segment_id, score, homes, qpe_1h, ffw, geom, first_seen
+# Note: 'id' is auto-generated bigserial, 'first_seen' has DEFAULT now()
 FLOOD_PIXELS_COLUMNS = (
-    'segment_id', 'score', 'homes', 'qpe_1h', 'ffw',
-    'lon', 'lat', 'first_seen', 'geom'
+    'segment_id', 'score', 'homes', 'qpe_1h', 'ffw', 'geom', 'first_seen'
 )
 
 def to_row(event_dict: dict) -> Tuple[Any, ...]:
     """
     Convert flood event dict to database row tuple
-    Maps from FloodClassifier output to flood_pixels_raw schema
+    FIXED: Maps to actual database schema (no separate lon/lat columns)
     """
     # Fixed: Safer segment_id encoding to avoid collisions
     segment_id_str = event_dict['segment_id']
@@ -73,7 +75,7 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
     first_seen_str = event_dict['first_seen']
     first_seen = isoparse(first_seen_str)
     
-    # Fixed: Include WKT geometry string for text-mode COPY
+    # FIXED: Create geometry WKT string directly (no separate lon/lat)
     lon = event_dict['longitude']
     lat = event_dict['latitude']
     geom_wkt = f'SRID=4326;POINT({lon} {lat})'
@@ -84,15 +86,14 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
         event_dict['home_estimate'],         # integer (homes)
         event_dict['qpe_1h'],               # numeric
         event_dict['ffw_confirmed'],        # boolean
-        lon,                                # numeric (lon)
-        lat,                                # numeric (lat)
-        first_seen,                         # timestamptz
-        geom_wkt                            # geometry as WKT string
+        geom_wkt,                           # geometry as WKT string
+        first_seen                          # timestamptz
     )
 
 async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
     """
     Bulk insert flood events to database using copy_records_to_table
+    FIXED: Uses correct column mapping for actual schema
     Returns True on success, False on failure after retries
     """
     if not event_rows:
@@ -102,11 +103,12 @@ async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
     try:
         pool = await get_pool()
         
-        # Fixed: Use copy_records_to_table with proper binary format
+        # Convert event dictionaries to database rows
         rows = [to_row(event_dict) for event_dict in event_rows]
         
         async with pool.acquire() as conn:
             async with conn.transaction():
+                # FIXED: Use copy_records_to_table with correct schema alignment
                 await conn.copy_records_to_table(
                     'flood_pixels_raw', 
                     records=rows, 
