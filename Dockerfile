@@ -23,11 +23,11 @@ COPY generator/ ./generator/
 COPY db.py .
 COPY schema.sql .
 
-# Create complete cache directory structure with explicit permissions
-RUN mkdir -p /tmp/mrms_cache/flash && \
-    mkdir -p /tmp/mrms_cache/qpe && \
-    mkdir -p /tmp/mrms_cache/ffw && \
-    chmod -R 755 /tmp/mrms_cache
+# Replace the existing mkdir commands with:
+RUN mkdir -p /app/cache/flash && \
+    mkdir -p /app/cache/qpe && \
+    mkdir -p /app/cache/ffw && \
+    chmod -R 755 /app/cache
 
 # Create non-root user for security
 RUN groupadd -r generator && useradd -r -g generator generator

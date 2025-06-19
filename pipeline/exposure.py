@@ -270,7 +270,7 @@ def _validate_grid_orientation():
                 
         else:  # Production data - use geographic validation
             # Houston: ~29.75°N, -95.35°W should have substantial population
-            houston_homes = homes(1400, 1200)  # Approximate Houston grid coordinates
+            houston_homes = homes(1959, 3243)  # Approximate Houston grid coordinates
             assert houston_homes > 500, f"Houston area shows {houston_homes} homes - grid may be flipped"
             
             # Also check a known low-population area
