@@ -71,11 +71,14 @@ class GeneratorPipeline:
         """Initialize population grid and test database connectivity"""
         logger.info("Initializing Generator dependencies...")
         
-        # Initialize population exposure grid
+        # Initialize population exposure grid with correct path
         if not is_initialized():
             try:
                 logger.info("Initializing population exposure grid...")
-                initialize_population_grid(allow_regional_data=True)
+                initialize_population_grid(
+                    parquet_path="pipeline/pixel_exposure_conus.parquet",
+                    allow_regional_data=True
+                )
                 logger.info("✓ Population exposure grid initialized")
             except Exception as e:
                 logger.error(f"Population grid initialization failed: {e}")

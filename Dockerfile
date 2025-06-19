@@ -23,17 +23,20 @@ COPY generator/ ./generator/
 COPY db.py .
 COPY schema.sql .
 
-# Create cache directory
-RUN mkdir -p /tmp/mrms_cache
+# Create complete cache directory structure
+RUN mkdir -p /tmp/mrms_cache/flash /tmp/mrms_cache/qpe /tmp/mrms_cache/ffw
+
+# Create non-root user for security
+RUN groupadd -r generator && useradd -r -g generator generator
+
+# Fix permissions for cache directories and app
+RUN chown -R generator:generator /app /tmp/mrms_cache
+
+USER generator
 
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-
-# Create non-root user for security
-RUN groupadd -r generator && useradd -r -g generator generator
-RUN chown -R generator:generator /app /tmp/mrms_cache
-USER generator
 
 # Entry point
 CMD ["python", "-m", "generator.run"]
