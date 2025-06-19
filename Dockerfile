@@ -1,40 +1,38 @@
-FROM python:3.13.4-slim-bookworm
+# Dockerfile for Generator Container - Optimized for Render deployment
+FROM python:3.11-slim
 
-# Install system dependencies for geospatial libraries and eccodes
+# Install minimal system dependencies for eccodes only
 RUN apt-get update && apt-get install -y \
-    libgdal-dev \
-    gdal-bin \
-    libeccodes-dev \
     libeccodes-tools \
-    libproj-dev \
-    libgeos-dev \
+    libeccodes-dev \
     gcc \
-    g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for GDAL
-ENV GDAL_CONFIG=/usr/bin/gdal-config
-ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
-ENV C_INCLUDE_PATH=/usr/include/gdal
-
-# Create application directory
+# Set working directory
 WORKDIR /app
 
-# Copy requirements first for better Docker layer caching
+# Copy requirements first for better layer caching
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY pipeline/ ./pipeline/
+# Copy source code (fixed paths - no pipeline/ subdirectory)
 COPY *.py ./
+COPY generator/ ./generator/
+COPY schema.sql .
 
-# Create necessary directories
-RUN mkdir -p /app/flash_cache /app/qpe_cache /app/ffw_cache /app/validation_output
+# Create cache directory
+RUN mkdir -p /tmp/mrms_cache
 
-# Set Python path
-ENV PYTHONPATH=/app:/app/pipeline
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 
-# Default command (can be overridden)
-CMD ["python", "-m", "pipeline.flood_classifier"]
+# Create non-root user for security
+RUN groupadd -r generator && useradd -r -g generator generator
+RUN chown -R generator:generator /app /tmp/mrms_cache
+USER generator
+
+# Entry point
+CMD ["python", "-m", "generator.run"]
