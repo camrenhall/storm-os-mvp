@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+.DS_Store
 flash_cache/
 pipeline_test_output/
 comprehensive_validation_output/
