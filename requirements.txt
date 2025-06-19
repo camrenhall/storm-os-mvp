@@ -16,3 +16,4 @@ aiohttp>=3.9.0
 
 # Data processing
 pandas>=2.0.0
+pyarrow>=10.0.0  # Added for parquet file support
