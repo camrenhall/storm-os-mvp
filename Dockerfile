@@ -33,7 +33,7 @@ RUN mkdir -p /app/cache/flash && \
 RUN groupadd -r generator && useradd -r -g generator generator
 
 # Fix permissions for cache directories and app
-RUN chown -R generator:generator /app /tmp/mrms_cache
+RUN chown -R generator:generator /app
 
 USER generator
 
