@@ -18,10 +18,11 @@ WORKDIR /app
 # Copy requirements first for better layer caching
 COPY requirements.txt .
 
-# Install Python dependencies with explicit geopandas handling
-RUN pip install --no-cache-dir numpy pandas scipy asyncpg python-dateutil eccodes aiohttp && \
-    pip install --no-cache-dir --no-binary fiona,rasterio,shapely geopandas && \
-    pip install --no-cache-dir pyarrow
+# Install core Python dependencies first
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Try to install geopandas separately (optional)
+RUN pip install --no-cache-dir geopandas || echo "GeoPandas install failed - continuing without FFW support"
 
 # Copy source code matching your structure
 COPY pipeline/ ./pipeline/

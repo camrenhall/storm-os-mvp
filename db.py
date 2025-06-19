@@ -2,7 +2,7 @@
 """
 Database connection and operations for Flood-Lead Intelligence MVP
 Handles asyncpg pool management and bulk operations to Neon
-FIXED: Schema alignment with actual database structure
+FIXED: Schema alignment with actual database structure and syntax fixes
 """
 
 import os
@@ -29,7 +29,6 @@ async def get_pool() -> asyncpg.Pool:
         
         logger.info(f"Creating database pool for {env} environment")
         
-        # Fixed: Remove ssl='require' to avoid deprecation warning (rely on DSN)
         _db_pool = await asyncpg.create_pool(
             dsn=dsn,
             min_size=1,
@@ -93,7 +92,7 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
 async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
     """
     Bulk insert flood events to database using executemany
-    FIXED: Fallback to executemany for guaranteed PostGIS geometry compatibility
+    FIXED: Uses executemany for guaranteed PostGIS geometry compatibility
     Returns True on success, False on failure after retries
     """
     if not event_rows:
@@ -106,22 +105,10 @@ async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
         # Convert event dictionaries to database rows
         rows = [to_row(event_dict) for event_dict in event_rows]
         
-        # Prepare INSERT statement
-        insert_sql = f"""
-            INSERT INTO flood_pixels_raw ({', '.join(FLOOD_PIXELS_COLUMNS)})
-            VALUES ({', '.join(['
-
-async def test_connection() -> bool:
-    """Test database connectivity"""
-    try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            result = await conn.fetchval("SELECT 1")
-            logger.info("✓ Database connection test successful")
-            return result == 1
-    except Exception as e:
-        logger.error(f"Database connection test failed: {e}")
-        return False + str(i+1) for i in range(len(FLOOD_PIXELS_COLUMNS))])})
+        # FIXED: Simple static SQL string to avoid f-string syntax issues
+        insert_sql = """
+            INSERT INTO flood_pixels_raw (segment_id, score, homes, qpe_1h, ffw, geom, first_seen)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
         """
         
         async with pool.acquire() as conn:
