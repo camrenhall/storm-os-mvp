@@ -92,8 +92,8 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
 
 async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
     """
-    Bulk insert flood events to database using COPY FROM
-    FIXED: Uses text format to handle PostGIS geometry properly
+    Bulk insert flood events to database using executemany
+    FIXED: Fallback to executemany for guaranteed PostGIS geometry compatibility
     Returns True on success, False on failure after retries
     """
     if not event_rows:
@@ -106,15 +106,29 @@ async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
         # Convert event dictionaries to database rows
         rows = [to_row(event_dict) for event_dict in event_rows]
         
+        # Prepare INSERT statement
+        insert_sql = f"""
+            INSERT INTO flood_pixels_raw ({', '.join(FLOOD_PIXELS_COLUMNS)})
+            VALUES ({', '.join(['
+
+async def test_connection() -> bool:
+    """Test database connectivity"""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.fetchval("SELECT 1")
+            logger.info("✓ Database connection test successful")
+            return result == 1
+    except Exception as e:
+        logger.error(f"Database connection test failed: {e}")
+        return False + str(i+1) for i in range(len(FLOOD_PIXELS_COLUMNS))])})
+        """
+        
         async with pool.acquire() as conn:
             async with conn.transaction():
-                # FIXED: Use COPY FROM with text format for geometry compatibility
-                await conn.copy_records_to_table(
-                    'flood_pixels_raw', 
-                    records=rows, 
-                    columns=FLOOD_PIXELS_COLUMNS,
-                    format='text'  # CRITICAL: Text format for PostGIS geometry
-                )
+                # FIXED: Use executemany for guaranteed compatibility with PostGIS geometry
+                # This approach works reliably with geometry WKT strings
+                await conn.executemany(insert_sql, rows)
         
         logger.info(f"✓ {len(event_rows)} flood pixels persisted to Neon")
         return True

@@ -18,8 +18,10 @@ WORKDIR /app
 # Copy requirements first for better layer caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with explicit geopandas handling
+RUN pip install --no-cache-dir numpy pandas scipy asyncpg python-dateutil eccodes aiohttp && \
+    pip install --no-cache-dir --no-binary fiona,rasterio,shapely geopandas && \
+    pip install --no-cache-dir pyarrow
 
 # Copy source code matching your structure
 COPY pipeline/ ./pipeline/
