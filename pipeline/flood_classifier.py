@@ -733,10 +733,19 @@ class FloodClassifier:
                     try:
                         center_row = int(centroid_row)
                         center_col = int(centroid_col)
-                        if 0 <= center_row < self.nj and 0 <= center_col < self.ni:
+                        
+                        # DIAGNOSTIC: Log the lookup attempt
+                        lon, lat = self.grid_to_lonlat(center_row, center_col)
+                        logger.info(f"🏠 Event {label}: grid({center_row},{center_col}) -> lat/lon({lat:.4f},{lon:.4f})")
+                        
+                        if 0 <= center_row < self.nj and 0 <= col < self.ni:
                             home_estimate = homes(center_row, center_col)
+                            logger.info(f"🏠 Event {label}: {home_estimate} homes found")
+                        else:
+                            logger.warning(f"🏠 Event {label}: OUT OF BOUNDS")
+                            
                     except Exception as e:
-                        logger.debug(f"Home estimate lookup failed for event {label}: {e}")
+                        logger.error(f"🏠 Event {label}: lookup failed - {e}")
                         home_estimate = 0
                 
                 # Check FFW confirmation for scoring
