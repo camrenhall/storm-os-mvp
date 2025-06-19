@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libgdal-dev \
     libproj-dev \
     libgeos-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -21,8 +22,8 @@ COPY requirements.txt .
 # Install core Python dependencies first
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Try to install geopandas separately (optional)
-RUN pip install --no-cache-dir geopandas || echo "GeoPandas install failed - continuing without FFW support"
+# Install geopandas with proper system library detection
+RUN pip install --no-cache-dir geopandas shapely fiona rasterio
 
 # Copy source code matching your structure
 COPY pipeline/ ./pipeline/

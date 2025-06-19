@@ -1,19 +1,13 @@
-# Core dependencies
+# Core dependencies for flood detection pipeline
 asyncpg>=0.29.0
 python-dateutil>=2.8.0
-
-# Meteorological data processing
-eccodes>=1.5.0
 numpy>=1.24.0
-scipy>=1.10.0
-geopandas>=0.14.0
-
-# Minimal geospatial (only what's actually needed)
-shapely>=2.0.0
-
-# HTTP client
-aiohttp>=3.9.0
-
-# Data processing
 pandas>=2.0.0
-pyarrow>=10.0.0  # Added for parquet file support
+scipy>=1.10.0
+eccodes>=1.5.0
+aiohttp>=3.9.0
+pyarrow>=10.0.0
+
+# Geospatial dependencies for FFW processing
+geopandas
+shapely>=2.0.0
