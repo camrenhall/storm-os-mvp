@@ -11,7 +11,14 @@ RUN apt-get update && apt-get install -y \
     libproj-dev \
     libgeos-dev \
     pkg-config \
+    gdal-bin \
+    proj-bin \
+    libspatialindex-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables for geospatial libraries
+ENV PROJ_LIB=/usr/share/proj
+ENV GDAL_DATA=/usr/share/gdal
 
 # Set working directory
 WORKDIR /app
@@ -30,6 +37,12 @@ COPY pipeline/ ./pipeline/
 COPY generator/ ./generator/
 COPY db.py .
 COPY schema.sql .
+
+# Copy debug script
+COPY container_debug_script.py .
+
+# Run debug script to check installation
+RUN python container_debug_script.py
 
 # Replace the existing mkdir commands with:
 RUN mkdir -p /app/cache/flash && \

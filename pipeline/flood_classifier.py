@@ -18,22 +18,51 @@ from enum import Enum
 import json
 from pathlib import Path
 
-# Import population grid module
+# Import population grid module with proper error handling
 try:
-    from exposure import homes, initialize_population_grid, is_initialized, GRID_SHAPE
+    from .exposure import homes, initialize_population_grid, is_initialized, GRID_SHAPE
     EXPOSURE_AVAILABLE = True
 except ImportError:
-    EXPOSURE_AVAILABLE = False
-    print("Warning: exposure module not available, home estimates disabled")
+    try:
+        # Fallback to pipeline-level import
+        from exposure import homes, initialize_population_grid, is_initialized, GRID_SHAPE
+        EXPOSURE_AVAILABLE = True
+    except ImportError:
+        EXPOSURE_AVAILABLE = False
+        print("Warning: exposure module not available, home estimates disabled")
 
+# Enhanced geopandas import with detailed debugging
+GEOPANDAS_AVAILABLE = False
 try:
     import geopandas as gpd
     from shapely.geometry import Point, Polygon
     from rasterio import features
-    import matplotlib.pyplot as plt
     GEOPANDAS_AVAILABLE = True
-except ImportError:
-    GEOPANDAS_AVAILABLE = False
+    print(f"✅ GeoPandas successfully imported: {gpd.__version__}")
+except ImportError as e:
+    print(f"❌ GeoPandas import failed in flood_classifier: {e}")
+    
+    # Try individual component imports for debugging
+    components = [
+        ('pandas', 'pandas'),
+        ('numpy', 'numpy'),
+        ('shapely', 'shapely.geometry'),
+        ('fiona', 'fiona'),
+        ('pyproj', 'pyproj'),
+        ('rasterio', 'rasterio')
+    ]
+    
+    print("Component import test:")
+    for name, module in components:
+        try:
+            __import__(module)
+            print(f"  ✅ {name}: OK")
+        except ImportError as comp_e:
+            print(f"  ❌ {name}: {comp_e}")
+    
+    print("Warning: geopandas not available, FFW integration disabled")
+except Exception as e:
+    print(f"❌ GeoPandas unexpected error: {e}")
     print("Warning: geopandas not available, FFW integration disabled")
 
 # Setup logging
