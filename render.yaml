@@ -1,0 +1,26 @@
+services:
+- name: flood-generator
+  type: background
+  env: docker
+  dockerfilePath: docker/Dockerfile
+  plan: free
+  autoDeploy: true
+  startCommand: |
+    cron: "*/30 * * * *"        # every 30 min UTC
+    command: "python -m generator.main"
+  envVars:
+  - key: DATABASE_URL
+    fromSecret: DATABASE_URL
+  - key: LOG_LEVEL
+    fromSecret: LOG_LEVEL
+
+- name: flood-api
+  type: web
+  env: docker
+  dockerfilePath: docker/Dockerfile
+  autoDeploy: true
+  healthCheckPath: /health
+  startCommand: "uvicorn api.app:app --port 10000 --host 0.0.0.0"
+  envVars:
+  - key: DATABASE_URL
+    fromSecret: DATABASE_URL

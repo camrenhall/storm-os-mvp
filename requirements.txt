@@ -1,0 +1,48 @@
+# Flood Classification Pipeline - Requirements
+# Production-ready MRMS flood detection system
+
+# Core Data Science Stack
+numpy>=1.21.0
+pandas>=1.4.0
+scipy>=1.8.0
+
+# Geospatial Libraries
+geopandas>=0.12.0
+shapely>=1.8.0
+rasterio>=1.3.0
+pyproj>=3.3.0
+
+# Meteorological Data Processing
+eccodes>=1.5.0
+
+# HTTP Client for Data Ingestion
+aiohttp>=3.8.0
+requests>=2.28.0
+
+# Testing Framework
+pytest>=7.0.0
+pytest-benchmark>=4.0.0
+pytest-cov>=4.0.0
+
+# Performance Monitoring
+memory-profiler>=0.60.0
+psutil>=5.9.0
+
+# Optional Dependencies for Enhanced Features
+matplotlib>=3.5.0  # For visualization in validation mode
+plotly>=5.0.0      # Alternative plotting backend
+
+# Data Format Support
+pyarrow>=8.0.0     # For Parquet file handling (exposure grid)
+
+# Datetime Handling
+python-dateutil>=2.8.0
+
+# Development Tools (optional)
+black>=22.0.0      # Code formatting
+flake8>=5.0.0      # Linting
+mypy>=0.950        # Type checking
+
+# Production Deployment
+gunicorn>=20.1.0   # WSGI server (if web interface needed)
+uvicorn>=0.18.0    # ASGI server (if async web interface needed)
