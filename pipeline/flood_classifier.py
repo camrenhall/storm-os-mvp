@@ -203,18 +203,14 @@ class FloodClassifier:
         self._score_warning_logged = False
     
     def _initialize_exposure_data(self):
-        """Initialize population exposure data if available"""
+        """Check if population exposure data is available (don't auto-initialize)"""
         if EXPOSURE_AVAILABLE:
-            try:
-                if not is_initialized():
-                    logger.info("Initializing population exposure grid...")
-                    initialize_population_grid()
-                    logger.info("✅ Population exposure grid ready")
-                else:
-                    logger.info("✅ Population exposure grid already initialized")
+            # Just check if it's already initialized, don't try to initialize here
+            if is_initialized():
+                logger.info("✅ Population exposure grid already initialized")
                 self._exposure_enabled = True
-            except Exception as e:
-                logger.error(f"❌ Population exposure initialization failed: {e}")
+            else:
+                logger.info("ℹ️  Population exposure grid not yet initialized (will be done by pipeline)")
                 self._exposure_enabled = False
         else:
             logger.warning("⚠️  Population exposure module not available")
