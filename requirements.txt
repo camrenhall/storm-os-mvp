@@ -6,6 +6,7 @@ python-dateutil>=2.8.0
 eccodes>=1.5.0
 numpy>=1.24.0
 scipy>=1.10.0
+geopandas
 
 # Minimal geospatial (only what's actually needed)
 shapely>=2.0.0
