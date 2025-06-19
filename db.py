@@ -92,8 +92,8 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
 
 async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
     """
-    Bulk insert flood events to database using copy_records_to_table
-    FIXED: Uses correct column mapping for actual schema
+    Bulk insert flood events to database using COPY FROM
+    FIXED: Uses text format to handle PostGIS geometry properly
     Returns True on success, False on failure after retries
     """
     if not event_rows:
@@ -108,11 +108,12 @@ async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
         
         async with pool.acquire() as conn:
             async with conn.transaction():
-                # FIXED: Use copy_records_to_table with correct schema alignment
+                # FIXED: Use COPY FROM with text format for geometry compatibility
                 await conn.copy_records_to_table(
                     'flood_pixels_raw', 
                     records=rows, 
-                    columns=FLOOD_PIXELS_COLUMNS
+                    columns=FLOOD_PIXELS_COLUMNS,
+                    format='text'  # CRITICAL: Text format for PostGIS geometry
                 )
         
         logger.info(f"✓ {len(event_rows)} flood pixels persisted to Neon")

@@ -122,6 +122,7 @@ class QPEIngest:
     def decode_grib2(self, data: bytes) -> Optional[Dict[str, Any]]:
         """
         Decode GRIB2 data and extract QPE
+        FIXED: Correct MRMS parameter validation
         Returns dict with grid data and metadata
         """
         try:
@@ -139,25 +140,50 @@ class QPEIngest:
                     return None
                 
                 try:
-                    # Get parameter info for logging but don't fail on mismatch
+                    # Get parameter info
                     param_num = codes_get(gid, 'parameterNumber')
                     discipline = codes_get(gid, 'discipline') 
                     category = codes_get(gid, 'parameterCategory')
                     
-                    logger.info(f"QPE GRIB2 parameters: {param_num}, {discipline}, {category}")
+                    logger.info(f"QPE GRIB2 parameters: discipline={discipline}, category={category}, param={param_num}")
                     
-                    # RELAXED: Log parameter info but don't enforce strict validation
-                    # QPE parameters may vary from expected values
-                    if (param_num, discipline, category) != self.EXPECTED_PARAM:
-                        logger.warning(f"QPE parameter mismatch: expected {self.EXPECTED_PARAM}, got ({param_num}, {discipline}, {category})")
-                        logger.info("Continuing with parameter validation relaxed for QPE")
+                    # FIXED: Correct MRMS QPE parameter validation
+                    # Based on official MRMS GRIB2 table: https://www.nssl.noaa.gov/projects/mrms/operational/tables.php
+                    valid_mrms_qpe_params = [
+                        (1, 209, 6),   # PrecipRate (mm/hr)
+                        (2, 209, 6),   # RadarOnly_QPE_01H (mm) - most common
+                        (3, 209, 6),   # RadarOnly_QPE_03H (mm)
+                        (30, 209, 6),  # MultiSensor_QPE_01H_Pass1 (mm)
+                        (37, 209, 6),  # MultiSensor_QPE_01H_Pass2 (mm)
+                        (45, 209, 6),  # RadarOnly_QPE_15M (mm)
+                    ]
                     
-                    # Verify grid dimensions
+                    current_params = (param_num, discipline, category)
+                    if current_params in valid_mrms_qpe_params:
+                        logger.info(f"✓ Valid MRMS QPE parameters: {current_params}")
+                        
+                        # Log which specific product we got
+                        product_names = {
+                            (1, 209, 6): "PrecipRate",
+                            (2, 209, 6): "RadarOnly_QPE_01H", 
+                            (3, 209, 6): "RadarOnly_QPE_03H",
+                            (30, 209, 6): "MultiSensor_QPE_01H_Pass1",
+                            (37, 209, 6): "MultiSensor_QPE_01H_Pass2",
+                            (45, 209, 6): "RadarOnly_QPE_15M"
+                        }
+                        product_name = product_names.get(current_params, "Unknown QPE")
+                        logger.info(f"  Product: {product_name}")
+                        
+                    else:
+                        logger.warning(f"Unexpected QPE parameters {current_params}, expected MRMS QPE product")
+                        logger.info("Proceeding with caution - may not be a QPE product")
+                    
+                    # Verify grid dimensions (critical validation)
                     ni = codes_get(gid, 'Ni')  # longitude points
                     nj = codes_get(gid, 'Nj')  # latitude points
                     
                     if ni * nj != self.EXPECTED_GRID_SIZE:
-                        logger.error(f"Unexpected QPE grid size: {ni}×{nj} = {ni*nj}")
+                        logger.error(f"CRITICAL: QPE grid size mismatch: {ni}×{nj} = {ni*nj}, expected {self.EXPECTED_GRID_SIZE}")
                         return None
                     
                     # Extract valid time
@@ -165,16 +191,32 @@ class QPEIngest:
                         valid_date = codes_get(gid, 'dataDate')
                         valid_time = codes_get(gid, 'dataTime')
                         valid_datetime = datetime.strptime(f"{valid_date}{valid_time:04d}", "%Y%m%d%H%M")
-                    except:
-                        valid_datetime = datetime.now(datetime.UTC)
+                        valid_datetime = valid_datetime.replace(tzinfo=timezone.utc)
+                    except Exception as e:
+                        logger.warning(f"QPE time parsing failed: {e}, using current time")
+                        valid_datetime = datetime.now(timezone.utc)
                     
                     # Get the data values and ensure float32 consistency
                     values = codes_get_values(gid)
                     qpe_1h = values.reshape(nj, ni).astype(np.float32)  # Force float32 like UnitStreamflow
                     
-                    # Basic statistics for validation
+                    # Enhanced QPE validation
                     valid_mask = (qpe_1h >= 0) & np.isfinite(qpe_1h)  # QPE should be non-negative
                     valid_count = valid_mask.sum()
+                    
+                    # QPE quality checks
+                    if valid_count == 0:
+                        logger.warning("QPE data appears to have no valid values")
+                        return None
+                    
+                    # Check for reasonable QPE values (precipitation rates)
+                    if valid_count > 0:
+                        valid_data = qpe_1h[valid_mask]
+                        max_qpe = valid_data.max()
+                        
+                        # Sanity check: QPE > 500mm/h is extremely unlikely
+                        if max_qpe > 500.0:
+                            logger.warning(f"QPE contains extremely high values (max: {max_qpe:.1f} mm/h) - possible unit issue")
                     
                     result = {
                         'qpe_1h': qpe_1h,
@@ -186,7 +228,9 @@ class QPEIngest:
                         'parameter_info': {
                             'number': param_num,
                             'discipline': discipline,
-                            'category': category
+                            'category': category,
+                            'product_name': product_names.get(current_params, "Unknown"),
+                            'is_valid_mrms_qpe': current_params in valid_mrms_qpe_params
                         }
                     }
                     
@@ -195,7 +239,8 @@ class QPEIngest:
                         result.update({
                             'data_min': float(valid_data.min()),
                             'data_max': float(valid_data.max()),
-                            'data_mean': float(valid_data.mean())
+                            'data_mean': float(valid_data.mean()),
+                            'data_std': float(valid_data.std())
                         })
                     
                     logger.info(f"✓ Decoded QPE data: {valid_count:,} valid points "

@@ -1,11 +1,15 @@
 # Dockerfile for Generator Container - Optimized for Render deployment
 FROM python:3.11-slim
 
-# Install minimal system dependencies for eccodes only
+# Install system dependencies for eccodes AND geopandas
 RUN apt-get update && apt-get install -y \
     libeccodes-tools \
     libeccodes-dev \
     gcc \
+    g++ \
+    libgdal-dev \
+    libproj-dev \
+    libgeos-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
