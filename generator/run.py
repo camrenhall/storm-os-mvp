@@ -2,6 +2,7 @@
 """
 Generator Container - Main Entry Point
 30-minute orchestrated pipeline: MRMS data → flood classification → database
+FIXED: Proper async context manager usage for data ingestion clients
 """
 
 import asyncio
@@ -94,33 +95,33 @@ class GeneratorPipeline:
     async def ingest_meteorological_data(self) -> Dict[str, Any]:
         """
         Parallel ingestion of FLASH, QPE, and FFW data
+        FIXED: Proper async context manager usage
         Returns dict with all meteorological inputs
         """
         logger.info("Starting parallel meteorological data ingestion...")
         ingestion_start = time.time()
         
-        # Fixed: Use direct function calls instead of async context managers
-        # (since the original modules don't implement __aenter__/__aexit__)
+        # FIXED: Use proper async context managers for all clients
         async def fetch_flash():
-            flash_client = FlashIngest(cache_dir=f"{self.cache_dir}/flash")
             try:
-                return await flash_client.fetch_latest()
+                async with FlashIngest(cache_dir=f"{self.cache_dir}/flash") as flash_client:
+                    return await flash_client.fetch_latest()
             except Exception as e:
                 logger.error(f"FLASH fetch failed: {e}")
                 return e
         
         async def fetch_qpe():
-            qpe_client = QPEIngest(cache_dir=f"{self.cache_dir}/qpe")
             try:
-                return await qpe_client.fetch_latest()
+                async with QPEIngest(cache_dir=f"{self.cache_dir}/qpe") as qpe_client:
+                    return await qpe_client.fetch_latest()
             except Exception as e:
                 logger.warning(f"QPE fetch failed: {e}")
                 return e
         
         async def fetch_ffw():
-            ffw_client = NWSFlashFloodWarnings(cache_dir=f"{self.cache_dir}/ffw")
             try:
-                return await ffw_client.get_active_warnings()
+                async with NWSFlashFloodWarnings(cache_dir=f"{self.cache_dir}/ffw") as ffw_client:
+                    return await ffw_client.get_active_warnings()
             except Exception as e:
                 logger.warning(f"FFW fetch failed: {e}")
                 return e
@@ -286,7 +287,7 @@ class GeneratorPipeline:
             # Step 1: Initialize dependencies
             await self.initialize_dependencies()
             
-            # Step 2: Ingest meteorological data
+            # Step 2: Ingest meteorological data (FIXED: proper async context managers)
             meteorological_data = await self.ingest_meteorological_data()
             
             # Step 3: Process flood classification
