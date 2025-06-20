@@ -922,9 +922,24 @@ class FloodClassifier:
                     try:
                         center_row = int(centroid_row)
                         center_col = int(centroid_col)
+                        
+                        if self.config.enable_detailed_logging:
+                            lons, lats = self.grid_to_lonlat_vectorized(
+                                np.array([center_row]), np.array([center_col])
+                            )
+                            logger.info(f"🏠 Event {cluster_id}: grid({center_row},{center_col}) -> lat/lon({lats[0]:.4f},{lons[0]:.4f})")
+                        
                         if 0 <= center_row < self.nj and 0 <= center_col < self.ni:
                             home_estimate = homes(center_row, center_col)
+                            if self.config.enable_detailed_logging:
+                                logger.info(f"🏠 Event {cluster_id}: {home_estimate} homes found")
+                        else:
+                            if self.config.enable_detailed_logging:
+                                logger.warning(f"🏠 Event {cluster_id}: OUT OF BOUNDS")
+                                
                     except Exception as e:
+                        if self.config.enable_detailed_logging:
+                            logger.error(f"🏠 Event {cluster_id}: lookup failed - {e}")
                         home_estimate = 0
                 
                 # Check FFW confirmation

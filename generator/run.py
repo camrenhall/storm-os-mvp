@@ -48,7 +48,7 @@ class GeneratorPipeline:
         self.classifier_config = ClassificationConfig(
             processing_mode=ProcessingMode.PRODUCTION,
             use_fixed_thresholds=True,
-            enable_detailed_logging=False,  # Conservative for production
+            enable_detailed_logging=True,  # Conservative for production
             enable_ffw_enhancement=True,
             min_flood_area_pixels=9  # 3x3 minimum per spec
         )
