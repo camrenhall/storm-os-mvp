@@ -738,7 +738,7 @@ class FloodClassifier:
                         lon, lat = self.grid_to_lonlat(center_row, center_col)
                         logger.info(f"🏠 Event {label}: grid({center_row},{center_col}) -> lat/lon({lat:.4f},{lon:.4f})")
                         
-                        if 0 <= center_row < self.nj and 0 <= col < self.ni:
+                        if 0 <= center_row < self.nj and 0 <= center_col < self.ni:
                             home_estimate = homes(center_row, center_col)
                             logger.info(f"🏠 Event {label}: {home_estimate} homes found")
                         else:
@@ -1056,7 +1056,7 @@ def main():
     config = ClassificationConfig(
         processing_mode=ProcessingMode.PRODUCTION,
         use_fixed_thresholds=True,
-        enable_detailed_logging=False,  # Reduce verbosity
+        enable_detailed_logging=True,  # Reduce verbosity
         enable_ffw_enhancement=True,
         min_flood_area_pixels=9  # B7 fix: 3x3 minimum
     )
