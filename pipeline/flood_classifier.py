@@ -760,6 +760,23 @@ class FloodClassifier:
                                 if 0 <= test_row < self.nj and 0 <= test_col < self.ni:
                                     test_homes = homes(test_row, test_col)
                                     logger.info(f"  {lat},{lon} -> grid({test_row},{test_col}) -> {test_homes} homes")
+                                    
+                        # Check surrounding area for higher home counts
+                        logger.info(f"🧪 CHECKING NEARBY PIXELS for validation:")
+                        for test_lat, test_lon in [(29.75, -95.35)]:  # Just Houston for now
+                            base_row, base_col = self.lonlat_to_grid(test_lon, test_lat)
+                            logger.info(f"Houston base: grid({base_row},{base_col}) -> {homes(base_row, base_col)} homes")
+                            
+                            # Check 3x3 area around Houston
+                            max_homes = 0
+                            for dr in [-1, 0, 1]:
+                                for dc in [-1, 0, 1]:
+                                    r, c = base_row + dr, base_col + dc
+                                    if 0 <= r < self.nj and 0 <= c < self.ni:
+                                        nearby_homes = homes(r, c)
+                                        if nearby_homes > max_homes:
+                                            max_homes = nearby_homes
+                                        logger.info(f"  Houston+({dr},{dc}): grid({r},{c}) -> {nearby_homes} homes")
                             
                     except Exception as e:
                         logger.error(f"🏠 Event {label}: lookup failed - {e}")
