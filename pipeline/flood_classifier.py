@@ -746,6 +746,21 @@ class FloodClassifier:
                         else:
                             logger.warning(f"🏠 Event {label}: OUT OF BOUNDS")
                             
+                        # Residential Validation Test
+                        if label == 1:
+                            test_coords = [
+                                (29.75, -95.35),   # Houston (should be ~3178 homes)
+                                (40.75, -74.00),   # NYC (should be >1000 homes)
+                                (34.05, -118.25),  # LA (should be >1000 homes)
+                            ]
+                            
+                            logger.info(f"🧪 COORDINATE VALIDATION TEST:")
+                            for lat, lon in test_coords:
+                                test_row, test_col = self.lonlat_to_grid(lon, lat)
+                                if 0 <= test_row < self.nj and 0 <= test_col < self.ni:
+                                    test_homes = homes(test_row, test_col)
+                                    logger.info(f"  {lat},{lon} -> grid({test_row},{test_col}) -> {test_homes} homes")
+                            
                     except Exception as e:
                         logger.error(f"🏠 Event {label}: lookup failed - {e}")
                         home_estimate = 0
