@@ -730,7 +730,7 @@ class FloodClassifier:
                 # Get home estimate for this location
                 logger.info(f"🧪 REACHING HOME LOOKUP for event {label}")
                 home_estimate = 0
-                if self._exposure_enabled:
+                if EXPOSURE_AVAILABLE and is_initialized():
                     logger.info(f"🧪 EXPOSURE ENABLED - proceeding with lookup")
                     try:
                         center_row = int(centroid_row)
