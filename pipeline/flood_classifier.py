@@ -728,13 +728,15 @@ class FloodClassifier:
                     logger.debug(f"Applied fallback quality ranking for event {label}: {quality_rank:.2f}")
                 
                 # Get home estimate for this location
+                logger.info(f"🧪 REACHING HOME LOOKUP for event {label}")
                 home_estimate = 0
                 if self._exposure_enabled:
+                    logger.info(f"🧪 EXPOSURE ENABLED - proceeding with lookup")
                     try:
                         center_row = int(centroid_row)
                         center_col = int(centroid_col)
                         
-                        # DIAGNOSTIC: Log the lookup attempt
+                        # DIAGNOSTIC: Log the lookup attempt  
                         lon, lat = self.grid_to_lonlat(center_row, center_col)
                         logger.info(f"🏠 Event {label}: grid({center_row},{center_col}) -> lat/lon({lat:.4f},{lon:.4f})")
                         
