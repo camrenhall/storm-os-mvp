@@ -28,9 +28,6 @@ from db import dump_to_db, test_connection, close_pool
 from uuid import uuid4
 from datetime import datetime, timezone
 
-PIPELINE_RUN_ID  = uuid4()
-PIPELINE_RUN_TS  = datetime.now(tz=timezone.utc)
-
 # Setup logging
 def setup_logging():
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -289,6 +286,9 @@ class GeneratorPipeline:
         """
         # Fixed: Reset stats at start of each run
         self.reset_stats()
+        
+        self.run_ts = datetime.now(tz=timezone.utc)
+        self.run_id = uuid4()
         
         self._lock_id = 987654            # arbitrary but unique
         conn = await asyncpg.connect(dsn=os.getenv("DATABASE_URL_DEV"))
