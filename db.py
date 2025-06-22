@@ -9,6 +9,7 @@ import os
 import asyncpg
 import asyncio
 import logging
+import uuid
 from typing import List, Tuple, Any, Optional
 from datetime import datetime
 from dateutil.parser import isoparse
@@ -73,6 +74,9 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
     # Fixed: Use dateutil for more lenient timestamp parsing
     first_seen_str = event_dict['first_seen']
     first_seen = isoparse(first_seen_str)
+    run_ts     = isoparse(event_dict["run_timestamp"])
+    run_id     = uuid.UUID(event_dict["run_id"])  # safe if already UUID
+    
     
     # FIXED: Create geometry WKT string directly (no separate lon/lat)
     lon = event_dict['longitude']
@@ -86,7 +90,10 @@ def to_row(event_dict: dict) -> Tuple[Any, ...]:
         event_dict['qpe_1h'],               # numeric
         event_dict['ffw_confirmed'],        # boolean
         geom_wkt,                           # geometry as WKT string
-        first_seen                          # timestamptz
+        first_seen,                        # timestamptz
+        run_ts,                            # NEW
+        run_id                             # NEW (uuid)
+        
     )
 
 async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
@@ -107,8 +114,10 @@ async def dump_to_db(event_rows: List[dict], retry_count: int = 0) -> bool:
         
         # FIXED: Simple static SQL string to avoid f-string syntax issues
         insert_sql = """
-            INSERT INTO flood_pixels_raw (segment_id, score, homes, qpe_1h, ffw, geom, first_seen)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO flood_pixels_raw
+                        (segment_id, score, homes, qpe_1h, ffw, geom,
+                        first_seen, run_timestamp, run_id)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         """
         
         async with pool.acquire() as conn:

@@ -6,11 +6,11 @@ FIXED: Proper async context manager usage for data ingestion clients
 """
 
 import asyncio
+import asyncpg
 import logging
 import time
 import os
 import sys
-from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 # Fixed: Correct import paths for your directory structure
@@ -22,6 +22,14 @@ from pipeline.exposure import initialize_population_grid, is_initialized
 
 # Import database module (top-level)
 from db import dump_to_db, test_connection, close_pool
+
+# Uniqueness Tracing for DB
+
+from uuid import uuid4
+from datetime import datetime, timezone
+
+PIPELINE_RUN_ID  = uuid4()
+PIPELINE_RUN_TS  = datetime.now(tz=timezone.utc)
 
 # Setup logging
 def setup_logging():
@@ -251,6 +259,11 @@ class GeneratorPipeline:
             logger.info("No flood events to persist")
             return True
         
+        # attach provenance columns
+        for ev in flood_events:
+            ev["run_timestamp"] = self.run_ts.isoformat()
+            ev["run_id"]       = str(self.run_id)
+        
         logger.info(f"Persisting {len(flood_events)} flood events to database...")
         database_start = time.time()
         
@@ -276,6 +289,14 @@ class GeneratorPipeline:
         """
         # Fixed: Reset stats at start of each run
         self.reset_stats()
+        
+        self._lock_id = 987654            # arbitrary but unique
+        conn = await asyncpg.connect(dsn=os.getenv("DATABASE_URL_DEV"))
+        if not await conn.fetchval("SELECT pg_try_advisory_lock($1)", self._lock_id):
+            logger.warning("Another Generator is already running – aborting this cycle")
+            await conn.close()
+            return {"success": False, "reason": "lock_contended"}
+        self._advisory_conn = conn        # hold until finally: to release
         
         logger.info("=" * 60)
         logger.info("STARTING FLOOD-LEAD INTELLIGENCE GENERATOR PIPELINE")
@@ -328,6 +349,9 @@ class GeneratorPipeline:
             raise
         
         finally:
+            if hasattr(self, "_advisory_conn"):
+            await self._advisory_conn.execute("SELECT pg_advisory_unlock($1)", self._lock_id)
+            await self._advisory_conn.close()
             # Cleanup database connections
             await close_pool()
 
