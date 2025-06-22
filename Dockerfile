@@ -38,12 +38,6 @@ COPY generator/ ./generator/
 COPY db.py .
 COPY schema.sql .
 
-# Copy debug script
-COPY container_debug_script.py .
-
-# Run debug script to check installation
-RUN python container_debug_script.py
-
 # Replace the existing mkdir commands with:
 RUN mkdir -p /app/cache/flash && \
     mkdir -p /app/cache/qpe && \
