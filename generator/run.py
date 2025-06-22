@@ -350,10 +350,10 @@ class GeneratorPipeline:
         
         finally:
             if hasattr(self, "_advisory_conn"):
-            await self._advisory_conn.execute("SELECT pg_advisory_unlock($1)", self._lock_id)
-            await self._advisory_conn.close()
-            # Cleanup database connections
-            await close_pool()
+                await self._advisory_conn.execute("SELECT pg_advisory_unlock($1)", self._lock_id)
+                await self._advisory_conn.close()
+                # Cleanup database connections
+                await close_pool()
 
 async def main():
     """Main entry point for Generator container"""
